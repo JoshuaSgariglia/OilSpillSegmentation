@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue May 31 16:01:55 2022
-
-@author: Lenovo
-"""
 
 from keras.callbacks import ModelCheckpoint#, TensorBoard, EarlyStopping
 from multiprocessing import Process
@@ -80,9 +74,12 @@ tmp= sorted(glob.glob(val_images_path + "*.jpg") + glob.glob(val_images_path + "
 
 val_num=len(tmp)
 
-#此处选择模型 from Models import UNet,DeeplabV3Plus,SegNet3,DLinkNet
-#m = TransUNet(image_size=256, grid=(16,16), num_classes=2, pretrain=True)
-m = DLinkNet.create_dlinknet() #SegNet3.SegNet(256,256,2)#input_height,input_width,n_classes)
+# Select model here. Example imports:
+# from models import UNet, DeeplabV3Plus, SegNet3, DLinkNet
+# Example usage:
+# m = TransUNet(image_size=256, grid=(16,16), num_classes=2, pretrain=True)
+m = DLinkNet.create_dlinknet() 
+#SegNet3.SegNet(256,256,2)#input_height,input_width,n_classes)
 
 opt = tf.keras.optimizers.Adam(learning_rate=0.0001)
    

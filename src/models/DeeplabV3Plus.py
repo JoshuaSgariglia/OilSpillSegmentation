@@ -1,25 +1,7 @@
-# -*- coding:utf-8 _*-
-"""
-@author: ctmk
-
-@file: DeeplabV3Plus.py
-
-@time: 2022/4/4  11:04
-
-Deeplab V3+
-	实现参考
-	https://keras.io/examples/vision/deeplabv3_plus/
-"""
-import os
-import cv2
-import numpy as np
-from glob import glob
-from scipy.io import loadmat
-import matplotlib.pyplot as plt
 
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers
+from tensorflow.keras import layers # type: ignore
 
 IMAGE_SIZE = 512
 BATCH_SIZE = 4

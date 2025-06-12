@@ -1,17 +1,11 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Jan  6 15:17:18 2023
-
-@author: Lenovo
-"""
 
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers
+from tensorflow.keras import layers # type: ignore
 
 IMAGE_ORDERING =  "channels_last"
 
-# 编码器网络
+# Encoder
 def vggnet_encoder(input_height=416, input_width=416, pretrained='imagenet'):
 
     img_input = tf.keras.Input(shape=(input_height, input_width, 3))
@@ -51,22 +45,21 @@ def vggnet_encoder(input_height=416, input_width=416, pretrained='imagenet'):
 
     return img_input, [f1, f2, f3, f4, f5]
 
-# 解码器
+# Decoder
 def decoder(feature_input, n_classes, n_upSample):
-    # feature_input是vggnet第四个卷积块的输出特征矩阵
+    # feature_input is the output feature map from the fourth convolutional block of vggnet
     # 26,26,512
     output = (layers.ZeroPadding2D((1, 1), data_format=IMAGE_ORDERING))(feature_input)
     output = (layers.Conv2D(256, (3, 3), padding='valid', data_format=IMAGE_ORDERING))(output)
     output = (layers.BatchNormalization())(output)
-
-    # 进行一次UpSampling2D，此时hw变为原来的1/8
-    # 52,52,256
+    # Perform an UpSampling2D, at this point height and width become 1/8 of the original 
+    # # 52,52,256
     output = (layers.UpSampling2D((2, 2), data_format=IMAGE_ORDERING))(output)
     output = (layers.ZeroPadding2D((1, 1), data_format=IMAGE_ORDERING))(output)
     output = (layers.Conv2D(128, (3, 3), padding='valid', data_format=IMAGE_ORDERING))(output)
     output = (layers.BatchNormalization())(output)
 
-    # 进行一次UpSampling2D，此时hw变为原来的1/4
+    # Perform an UpSampling2D, at this point height and width become 1/4 of the original 
     # 104,104,128
     for _ in range(n_upSample - 2):
         output = (layers.UpSampling2D((2, 2), data_format=IMAGE_ORDERING))(output)
@@ -74,15 +67,15 @@ def decoder(feature_input, n_classes, n_upSample):
         output = (layers.Conv2D(64, (3, 3), padding='valid', data_format=IMAGE_ORDERING))(output)
         output = (layers.BatchNormalization())(output)
 
-    # 进行一次UpSampling2D，此时hw变为原来的1/2
+    # Perform an UpSampling2D, at this point height and width become 1/2 of the original 
     # 208,208,64
     output = (layers.UpSampling2D((2, 2), data_format=IMAGE_ORDERING))(output)
     output = (layers.ZeroPadding2D((1, 1), data_format=IMAGE_ORDERING))(output)
     output = (layers.Conv2D(32, (3, 3), padding='valid', data_format=IMAGE_ORDERING))(output)
     output = (layers.BatchNormalization())(output)
 	
-	# 像素级分类层
-    # 此时输出为h_input/2,w_input/2,nclasses
+    # Pixel-level classification layer
+    # At this point, the output is h_input/2, w_input/2, n_classes
     # 208,208,2
     output = layers.Conv2D(n_classes, (3, 3), padding='same', data_format=IMAGE_ORDERING)(output)
     print(output)
@@ -97,11 +90,6 @@ def SegNet(input_height=256, input_width=256, n_classes=2, n_upSample=3, encoder
     img_input, features = vggnet_encoder(input_height=input_height, input_width=input_width)
     feature = features[encoder_level]  # (26,26,512)
     output = decoder(feature, n_classes, n_upSample)
-
-    # 将结果进行reshape
-    #output = tf.reshape(output, (-1, int(input_height / 2) * int(input_width / 2), 2))
-    #output = layers.sigmoid()(output)
-    #Softmax()(output)
 
     model = tf.keras.Model(img_input, output)
 

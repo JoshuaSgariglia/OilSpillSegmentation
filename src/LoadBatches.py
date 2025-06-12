@@ -2,20 +2,7 @@ import numpy as np
 import cv2
 import glob
 import itertools
-import matplotlib.pyplot as plt
 import random
-
-'''
-def getImageArr(im):
-
-    img = im.astype(np.float32)
-
-    img[:, :, 0] -= 103.939
-    img[:, :, 1] -= 116.779
-    img[:, :, 2] -= 123.68
-
-    return img
-'''
 
 def getSegmentationArr(seg, nClasses, input_height, input_width):
 

@@ -1,7 +1,7 @@
 from keras.models import Model
 from keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D, concatenate
 
-def unet_plus_plus(nClasses, input_height, input_width):
+def UNet2(nClasses, input_height, input_width):
     inputs = Input((input_height, input_width, 3))
 
     # Encoder
@@ -73,7 +73,7 @@ def unet_plus_plus(nClasses, input_height, input_width):
     return model
 
 if __name__ == '__main__':
-    m = unet_plus_plus(5, 256, 256)
+    m = UNet2(5, 256, 256)
     from keras.utils import plot_model
     plot_model(m, show_shapes=True, to_file='model_unet_plus_plus.png')
     m.summary()

@@ -1,12 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sat May 28 13:53:11 2022
 
-@author: Lenovo
-"""
-
-#import LoadBatches
-#from keras.models import load_model
 import glob
 import cv2
 import numpy as np
@@ -16,7 +8,6 @@ from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, r
 from transunet import TransUNet
 import os
 from sklearn.cluster import KMeans
-import joblib
 from models import UNet,DeeplabV3Plus
 
 
@@ -135,7 +126,7 @@ for mi in output_models:
                 print(mi,r,file=f)
                 f.close()
 '''
-#全部计算
+# Compute all
 for mi in output_models:
     try:
         m = DeeplabV3Plus.DeeplabV3Plus(n_classes, input_height=input_height, input_width=input_width)
