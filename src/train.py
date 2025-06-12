@@ -1,6 +1,5 @@
 
-from keras.callbacks import ModelCheckpoint#, TensorBoard, EarlyStopping
-from multiprocessing import Process
+from keras.callbacks import ModelCheckpoint
 import LoadBatches
 #from keras import optimizers
 import math
@@ -9,13 +8,13 @@ import tensorflow as tf
 from transunet import TransUNet
 from keras import backend as K
 from keras.losses import binary_crossentropy
-from models import UNet,DeeplabV3Plus,SegNet3,DLinkNet
+from models import SegNet, UNet, DeeplabV3Plus, DLinkNet
 
 import os
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0" # 选择ID为0的GPU
+os.environ["CUDA_VISIBLE_DEVICES"] = "0" # GPU with ID 0
 
 gpus = tf.config.list_physical_devices(device_type='GPU')
 
@@ -74,12 +73,10 @@ tmp= sorted(glob.glob(val_images_path + "*.jpg") + glob.glob(val_images_path + "
 
 val_num=len(tmp)
 
-# Select model here. Example imports:
-# from models import UNet, DeeplabV3Plus, SegNet3, DLinkNet
-# Example usage:
+# Select model here
 # m = TransUNet(image_size=256, grid=(16,16), num_classes=2, pretrain=True)
 m = DLinkNet.create_dlinknet() 
-#SegNet3.SegNet(256,256,2)#input_height,input_width,n_classes)
+#m = SegNet.SegNet(256,256,2)#input_height,input_width,n_classes)
 
 opt = tf.keras.optimizers.Adam(learning_rate=0.0001)
    

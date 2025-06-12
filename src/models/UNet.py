@@ -1,62 +1,9 @@
 
 from keras import Model
-from keras.applications import vgg16
-from keras.layers import Input, Conv2D, BatchNormalization, Activation, Reshape, concatenate, UpSampling2D
+from keras.layers import Input, Conv2D, concatenate, UpSampling2D
 from keras.layers import MaxPooling2D
 
 def UNet(nClasses, input_height, input_width):
-    assert input_height % 32 == 0
-    assert input_width % 32 == 0
-
-    img_input = Input(shape=(input_height, input_width, 3))
-
-    vgg_streamlined = vgg16.VGG16(
-        include_top=False,
-        weights='imagenet', input_tensor=img_input)
-    assert isinstance(vgg_streamlined, Model)
-
-    # Decoder layers
-    o = UpSampling2D((2, 2))(vgg_streamlined.output)
-    o = concatenate([vgg_streamlined.get_layer(
-        name="block4_pool").output, o], axis=-1)
-    o = Conv2D(512, (3, 3), padding="same")(o)
-    o = BatchNormalization()(o)
-
-    o = UpSampling2D((2, 2))(o)
-    o = concatenate([vgg_streamlined.get_layer(
-        name="block3_pool").output, o], axis=-1)
-    o = Conv2D(256, (3, 3), padding="same")(o)
-    o = BatchNormalization()(o)
-
-    o = UpSampling2D((2, 2))(o)
-    o = concatenate([vgg_streamlined.get_layer(
-        name="block2_pool").output, o], axis=-1)
-    o = Conv2D(128, (3, 3), padding="same")(o)
-    o = BatchNormalization()(o)
-
-    o = UpSampling2D((2, 2))(o)
-    o = concatenate([vgg_streamlined.get_layer(
-        name="block1_pool").output, o], axis=-1)
-    o = Conv2D(64, (3, 3), padding="same")(o)
-    o = BatchNormalization()(o)
-
-    # The UNet network performs a 2x mirror upsampling on the input, so the final input and output are reduced by half.
-    # Here, directly upsample to restore the original size.
-    o = UpSampling2D((2, 2))(o)
-    o = Conv2D(64, (3, 3), padding="same")(o)
-    o = BatchNormalization()(o)
-
-    o = Conv2D(nClasses, (1, 1), padding="same")(o)
-    o = BatchNormalization()(o)
-    o = Activation("relu")(o)
-
-    o = Reshape((-1, nClasses))(o)
-    o = Activation("sigmoid")(o)
-
-    model = Model(inputs=img_input, outputs=o)
-    return model
-
-def unet_fengfan(nClasses, input_height, input_width):
     inputs = Input((input_height, input_width, 3))
 
     conv1 = Conv2D(32, (3, 3), activation="relu", padding="same")(inputs)

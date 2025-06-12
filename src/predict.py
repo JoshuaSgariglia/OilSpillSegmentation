@@ -7,8 +7,7 @@ import tensorflow as tf
 from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
 from transunet import TransUNet
 import os
-from sklearn.cluster import KMeans
-from models import UNet,DeeplabV3Plus
+from models import UNet, DeeplabV3Plus
 
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -130,7 +129,7 @@ for mi in output_models:
 for mi in output_models:
     try:
         m = DeeplabV3Plus.DeeplabV3Plus(n_classes, input_height=input_height, input_width=input_width)
-        #m = UNet.unet_fengfan(n_classes, input_height=input_height, input_width=input_width)
+        #m = UNet.UNet(n_classes, input_height=input_height, input_width=input_width)
         #m = TransUNet(image_size=256, grid=(16,16), num_classes=2, pretrain=True)
         m.load_weights(mi)
         seg_list,pr_list=np.array([]).astype('uint8'),np.array([]).astype('uint8')
