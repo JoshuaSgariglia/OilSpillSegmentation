@@ -48,7 +48,7 @@ def UNet(nClasses, input_height, input_width):
 
 
 if __name__ == '__main__':
-    m = unet_fengfan(5, 256, 256)
+    m = UNet(5, 256, 256)
     # print(m.get_weights()[2]) # Check if the weights have changed, used for testing VGG weight loading
     from keras.utils import plot_model
     plot_model(m, show_shapes=True, to_file='model_unet.png')
