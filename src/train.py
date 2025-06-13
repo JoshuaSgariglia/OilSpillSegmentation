@@ -1,112 +1,86 @@
 
-from keras.callbacks import ModelCheckpoint
-import LoadBatches
-#from keras import optimizers
-import math
-import glob
-import tensorflow as tf
-from transunet import TransUNet
-from keras import backend as K
-from keras.losses import binary_crossentropy
-from models import SegNet, UNet, DeeplabV3Plus, DLinkNet
-
 import os
+from keras.callbacks import ModelCheckpoint, CSVLogger
+from sklearn.model_selection import train_test_split
+import tensorflow as tf
+from BatchLoader import BatchLoader
+from Config import EPOCHS, LR, MOMENTUM, DatasetRegistry
+from models.UNetL import UNetL
+from utils import DiceLoss, bce_dice_loss, config_gpu, load_dataset
+from transunet import TransUNet
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0" # GPU with ID 0
+# Prepare GPU
+config_gpu()
 
-gpus = tf.config.list_physical_devices(device_type='GPU')
+# Select model
+#model = TransUNet(image_size=256, grid=(16,16), num_classes=2, pretrain=True) 
+model = UNetL()
 
-for gpu in gpus:
-    tf.config.experimental.set_memory_growth(device=gpu, enable=True)
+# Decaying learning rate
+steps_per_epoch = 1
+lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+    LR,
+    decay_steps=steps_per_epoch * 2,
+    decay_rate=0.7,
+    staircase=True)
 
-#############################################################################
-def generalized_dice_coefficient(y_true, y_pred):
-        smooth = 1.
-        y_true_f = K.flatten(y_true)
-        y_pred_f = K.flatten(y_pred)
-        intersection = K.sum(y_true_f * y_pred_f)
-        score = (2. * intersection + smooth) / (
-                    K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
-        return score
-    
-def dice_loss(y_true, y_pred):
-        loss = 1 - generalized_dice_coefficient(y_true, y_pred)
-        return loss
+# Select optimizer
+optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule, beta_1=MOMENTUM)
 
-def bce_dice_loss( y_true, y_pred):
-        loss = binary_crossentropy(y_true, y_pred) + dice_loss(y_true, y_pred)
-        return loss / 2.0
-#############################################################################
-#train_path = "tmp/"
-key = "funet"
+# IoU metric
+iou = tf.keras.metrics.IoU(num_classes=2, target_class_ids=[0])
 
-train_batch_size = 4
-val_batch_size = 1
-
-n_classes = 2
-epochs = 10000
-
-input_height = 256
-input_width = 256
-
-loss = bce_dice_loss
-
-i=0
-
-train_images_path="dataset/train/palsar/image/"
-train_segs_path="dataset/train/palsar/label/"
-
-val_images_path = "dataset/test/palsar/image/"
-val_segs_path = "dataset/test/palsar/label/"
-
-model_path="output/"
-
-tmp= sorted(glob.glob(train_images_path + "*.jpg") + glob.glob(train_images_path + "*.tif") +
-            glob.glob(train_images_path + "*.png") + glob.glob(train_images_path + "*.jpeg"))
-
-img_num=len(tmp)
-
-tmp= sorted(glob.glob(val_images_path + "*.jpg") + glob.glob(val_images_path + "*.tif") +
-            glob.glob(val_images_path + "*.png") + glob.glob(val_images_path + "*.jpeg"))
-
-val_num=len(tmp)
-
-# Select model here
-# m = TransUNet(image_size=256, grid=(16,16), num_classes=2, pretrain=True)
-m = DLinkNet.create_dlinknet() 
-#m = SegNet.SegNet(256,256,2)#input_height,input_width,n_classes)
-
-opt = tf.keras.optimizers.Adam(learning_rate=0.0001)
-   
-m.compile(
-    loss='binary_crossentropy',#loss,#'binary_crossentropy', # or loss=loss
-    optimizer=opt,
-    metrics=[tf.keras.metrics.BinaryAccuracy()]  #binary_accuracy
+# Compile model
+# Da rivedere perché la binary crossentropy si basa su due classi
+model.compile(
+    loss=DiceLoss(), # should be loss='binary_crossentropy', # or loss=loss
+    optimizer=optimizer,
+    metrics=[iou],  # IoU metric
+    #metrics=[tf.keras.metrics.BinaryAccuracy()]  #binary_accuracy
 )
 
-train_set = LoadBatches.imageSegmentationGenerator(train_images_path,
-                                           train_segs_path, train_batch_size, n_classes=n_classes, input_height=input_height, input_width=input_width)
-val_set = LoadBatches.imageSegmentationGenerator(val_images_path,
-                                            val_segs_path, val_batch_size, n_classes=n_classes, input_height=input_height, input_width=input_width)
+# Load dataset
+train_set, train_labels, val_test_set, val_test_labels = load_dataset(DatasetRegistry.PALSAR)
+
+print("Dataset caricato con successo!")
+
+# Split val and test 50-50
+val_set, val_labels, test_set, test_labels = train_test_split(val_test_set, val_test_labels, test_size=0.5)
+
+print("Dataset diviso in train, val e test con successo!")
+
+# Load batches
+train_batches = BatchLoader.LoadTrainingBatches(train_set, train_labels)
+val_batches = BatchLoader.LoadValidationBatches(val_set, val_labels)
+
+print("Batches caricati con successo!")
 
 checkpoint = ModelCheckpoint(
-    filepath="output/net.hdf5",
+    filepath=f"{os.getcwd()}/checkpoints/{model.name}.hdf5",
+    verbose=1,
     monitor='val_loss',
     mode='min',
     save_best_only=False,
     save_weights_only=False
     )
 
-m.fit(
-    x=train_set,
-    steps_per_epoch=img_num // train_batch_size,
-    epochs=epochs,
-    callbacks=[checkpoint], #, early_stopping
-    verbose=1,
-    validation_data=val_set,
-    validation_steps=val_num//val_batch_size,
-    #validation_split=0.2,
-    shuffle=True
-)
+print("Checkpoint creato con successo!")
+
+csv_logger = CSVLogger(
+    f"{os.getcwd()}/logs/{model.name}.csv",
+    append=True,
+    separator=';'
+    )
+
+print("CSV Logger creato con successo!")
+
+with tf.device('/GPU:0'):
+    history = model.fit(
+        x=train_batches,
+        validation_data=val_batches,
+        epochs=EPOCHS,
+        callbacks=[checkpoint, csv_logger],
+        verbose=1
+    )
+
+print("Training completato con successo!")

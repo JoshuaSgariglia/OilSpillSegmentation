@@ -1,10 +1,9 @@
-
 from keras.models import Model
 from keras.layers import Input, Dropout, Conv2D, MaxPooling2D, Conv2DTranspose, concatenate
 
 from Config import INP_CHANNELS, INPUT_HEIGHT, INPUT_WIDTH
 
-def UNet(input_height=INPUT_HEIGHT, input_width=INPUT_WIDTH, input_channels=INP_CHANNELS):
+def UNetL(input_height=INPUT_HEIGHT, input_width=INPUT_WIDTH, input_channels=INP_CHANNELS):
     
     inputs = Input((input_height, input_width, input_channels))
 
@@ -31,22 +30,10 @@ def UNet(input_height=INPUT_HEIGHT, input_width=INPUT_WIDTH, input_channels=INP_
     conv4 = Dropout(0.5) (conv4)
     conv4 = Conv2D(256, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same') (conv4)
     conv4 = Dropout(0.5) (conv4)
-    pool4 = MaxPooling2D((2, 2), strides=(2, 2))(conv4)
-
-    conv5 = Conv2D(512, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same') (pool4)
-    conv5 = Dropout(0.5) (conv5)
-    conv5 = Conv2D(512, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same') (conv5)
-    conv5 = Dropout(0.5) (conv5)
 
     # Decoder layers
-    deconv4 = Conv2DTranspose(256, (2, 2), strides=(2, 2), padding='same')(conv5)
-    deconv4 = concatenate([deconv4, conv4], axis=3)
-    deconv4 = Conv2D(256, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same') (deconv4)
-    deconv4 = Dropout(0.5) (deconv4)
-    deconv4 = Conv2D(256, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same') (deconv4)
-    deconv4 = Dropout(0.5) (deconv4)
 
-    deconv3 = Conv2DTranspose(128, (2, 2), strides=(2, 2), padding='same')(deconv4)
+    deconv3 = Conv2DTranspose(128, (2, 2), strides=(2, 2), padding='same')(conv4)
     deconv3 = concatenate([deconv3, conv3], axis=3)
     deconv3 = Conv2D(128, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same') (deconv3)
     deconv3 = Dropout(0.5) (deconv3)
@@ -67,11 +54,11 @@ def UNet(input_height=INPUT_HEIGHT, input_width=INPUT_WIDTH, input_channels=INP_
     deconv1 = Conv2D(32, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same') (deconv1)
     deconv1 = Dropout(0.5) (deconv1)
 
-    unet_output = Conv2D(1, (1, 1), activation='sigmoid', kernel_initializer = 'he_normal', padding='same')(deconv1)
+    unetl_output = Conv2D(1, (1, 1), activation='sigmoid', kernel_initializer = 'he_normal', padding='same')(deconv1)
 
-    model = Model([inputs], [unet_output], 'UNet')
+    model = Model([inputs], [unetl_output], 'UNetL')
     return model
 
 if __name__ == '__main__':
-    m = UNet(256, 256)
+    m = UNetL(256, 256)
     m.summary()

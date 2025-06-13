@@ -9,15 +9,6 @@ from transunet import TransUNet
 import os
 from models import UNet, DeeplabV3Plus
 
-
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-
-gpus = tf.config.list_physical_devices(device_type='GPU')
-for gpu in gpus:
-    tf.config.experimental.set_memory_growth(device=gpu, enable=True)
-
 n_classes = 2
 k_num=10
 nbr_bins=256
