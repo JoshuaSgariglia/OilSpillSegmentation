@@ -7,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 from Config import INP_CHANNELS, INPUT_HEIGHT, INPUT_WIDTH, OUT_MASKS, DatasetPaths
 from numpy.typing import NDArray
-from numpy import float64
+from numpy import float32
 
 # Losses
 def generalized_dice_coefficient(y_true, y_pred):
@@ -57,49 +57,42 @@ def get_image_filepaths(directory: str, extensions: list[str] = ["jpg", "tif", "
         filepaths += glob.glob(os.path.join(directory, f"*.{ext}"))
     return sorted(filepaths)
 
-# Loading iamges or masks
-def load_data(directory: str, channels: int, preprocessing: callable, extensions: list[str] = ["jpg", "tif", "png", "jpeg"]):
-    # Get all image file paths in the directory
-    images_paths: list[str] = get_image_filepaths(directory, extensions)
+# Get dataset file paths
+def get_dataset_filepaths(dataset: type[DatasetPaths]):
+    train_img_paths = get_image_filepaths(dataset.TRAIN_IMAGES_PATH)
+    train_mask_paths = get_image_filepaths(dataset.TRAIN_LABELS_PATH)
+    test_img_paths = get_image_filepaths(dataset.TEST_IMAGES_PATH)
+    test_mask_paths = get_image_filepaths(dataset.TEST_LABELS_PATH)
 
-    # Initialize an empty array to hold the images
-    images: NDArray[float64] = np.empty((len(images_paths), INPUT_HEIGHT, INPUT_WIDTH, channels))
+    return train_img_paths, train_mask_paths, test_img_paths, test_mask_paths
 
-    # Load and preprocess each image
-    for index, image_path in enumerate(images_paths):
-        image = cv2.imread(image_path, cv2.IMREAD_COLOR)
-        image = image[:, :, 0]
-        image = cv2.resize(image, (INPUT_WIDTH, INPUT_HEIGHT))
-        image = preprocessing(image)
-        images[index, :, :, 0] = image
+# Loading images or masks
+def load_data(filepath: str, preprocessing: callable):
+    image = cv2.imread(filepath, cv2.IMREAD_COLOR)
+    image = image[:, :, 0]
+    image = cv2.resize(image, (INPUT_WIDTH, INPUT_HEIGHT))
+    image = preprocessing(image)
+    image = np.expand_dims(image, axis=-1)  # (H, W, 1)
 
-    return images
+    return image
 
-def preprocess_image(image: NDArray[float64]) -> NDArray[float64]:
+def preprocess_image(image: NDArray[float32]) -> NDArray[float32]:
     image = (image - np.mean(image))/np.std(image)
 
     return image
 
-def preprocess_mask(mask: NDArray[float64]) -> NDArray[float64]:
-    mask = mask.astype(np.float64) / 255.0
+def preprocess_mask(mask: NDArray[float32]) -> NDArray[float32]:
+    mask = mask.astype(np.float32) / 255.0
 
     return mask
 
-# Loading image files
-def load_images(directory: str , extensions:list[str] = ["jpg", "tif", "png", "jpeg"]):
-    return load_data(directory, INP_CHANNELS, preprocess_image, extensions)
+# Loading image file
+def load_image(filepath: str):
+    return load_data(filepath, preprocess_image)
 
-# Loading image files
-def load_masks(directory: str , extensions:list[str] = ["jpg", "tif", "png", "jpeg"]):
-    return load_data(directory, OUT_MASKS, preprocess_mask, extensions)
+# Loading image file
+def load_mask(filepath: str):
+    return load_data(filepath, preprocess_mask)
 
-# Load whole dataset
-def load_dataset(dataset: type[DatasetPaths]):
-    train_set = load_images(dataset.TRAIN_IMAGES_PATH)
-    train_labels = load_masks(dataset.TRAIN_LABELS_PATH)
-    val_test_set = load_images(dataset.TEST_IMAGES_PATH)
-    val_test_labels = load_masks(dataset.TEST_LABELS_PATH)
-
-    return train_set, train_labels, val_test_set, val_test_labels
 
 

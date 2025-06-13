@@ -6,15 +6,39 @@ import tensorflow as tf
 from BatchLoader import BatchLoader
 from Config import EPOCHS, LR, MOMENTUM, DatasetRegistry
 from models.UNetL import UNetL
-from utils import DiceLoss, bce_dice_loss, config_gpu, load_dataset
+from utils import DiceLoss, bce_dice_loss, config_gpu, get_image_filepaths
 from transunet import TransUNet
 
 # Prepare GPU
 config_gpu()
 
+dataset: DatasetRegistry = DatasetRegistry.PALSAR
+
+# Get file paths for images and masks
+train_img_paths = get_image_filepaths(dataset.TRAIN_IMAGES_PATH)
+train_mask_paths = get_image_filepaths(dataset.TRAIN_LABELS_PATH)
+test_img_paths = get_image_filepaths(dataset.TEST_IMAGES_PATH)
+test_mask_paths = get_image_filepaths(dataset.TEST_LABELS_PATH)
+
+# Split test set into validation and test sets (50/50 split, stratify if possible)
+val_img_paths, test_img_paths, val_mask_paths, test_mask_paths = train_test_split(
+    test_img_paths, test_mask_paths, test_size=0.5, random_state=42
+)
+
+print("File paths caricati con successo!")
+
+# Create batch loaders (on-the-fly loading)
+train_batches = BatchLoader.LoadTrainingBatches(train_img_paths, train_mask_paths)
+val_batches = BatchLoader.LoadValidationBatches(val_img_paths, val_mask_paths)
+
+
+print("Batches caricati con successo!")
+
 # Select model
 #model = TransUNet(image_size=256, grid=(16,16), num_classes=2, pretrain=True) 
 model = UNetL()
+
+print("Modello creato con successo!")
 
 # Decaying learning rate
 steps_per_epoch = 1
@@ -39,21 +63,7 @@ model.compile(
     #metrics=[tf.keras.metrics.BinaryAccuracy()]  #binary_accuracy
 )
 
-# Load dataset
-train_set, train_labels, val_test_set, val_test_labels = load_dataset(DatasetRegistry.PALSAR)
-
-print("Dataset caricato con successo!")
-
-# Split val and test 50-50
-val_set, val_labels, test_set, test_labels = train_test_split(val_test_set, val_test_labels, test_size=0.5)
-
-print("Dataset diviso in train, val e test con successo!")
-
-# Load batches
-train_batches = BatchLoader.LoadTrainingBatches(train_set, train_labels)
-val_batches = BatchLoader.LoadValidationBatches(val_set, val_labels)
-
-print("Batches caricati con successo!")
+print("Modello compilato con successo!")
 
 checkpoint = ModelCheckpoint(
     filepath=f"{os.getcwd()}/checkpoints/{model.name}.hdf5",
