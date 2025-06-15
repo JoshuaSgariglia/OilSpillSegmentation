@@ -2,15 +2,22 @@ from dataclasses import dataclass
 import os
 
 # Config parameters
-TRAIN_BATCH_SIZE = 8
-VAL_BATCH_SIZE = 1
-LR = 0.0001
-MOMENTUM = 0.98
-EPOCHS = 100
 INPUT_WIDTH = 256
 INPUT_HEIGHT = 256
 INP_CHANNELS = 1
 OUT_MASKS = 1
+
+# Training parameters
+TRAIN_BATCH_SIZE = 8
+VAL_BATCH_SIZE = 4
+LR = 1e-4
+MIN_LR = 1e-6
+DECAYING_FACTOR = 0.5
+MOMENTUM = 0.98
+PATIENCE = 3
+EPOCHS = 60
+DROPOUT_RATE = 0.2
+
 
 # Interface for DatasetRegistry attributes
 @dataclass(frozen=True)

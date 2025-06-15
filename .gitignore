@@ -58,3 +58,10 @@ py3*/
 
 # Datasets
 *dataset/
+
+# Results
+*checkpoints/
+*logs/
+*results/
+*outputs/
+*predictions/

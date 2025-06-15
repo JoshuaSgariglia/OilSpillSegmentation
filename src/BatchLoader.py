@@ -1,10 +1,8 @@
 import random
-from typing import Callable, Sequence
-
-import cv2
+from tensorflow.keras.utils import Sequence # type: ignore
 import numpy as np
-from Config import INP_CHANNELS, INPUT_HEIGHT, INPUT_WIDTH, OUT_MASKS, TRAIN_BATCH_SIZE, VAL_BATCH_SIZE
-from utils import load_image, load_mask, preprocess_image, preprocess_mask
+from config import INP_CHANNELS, INPUT_HEIGHT, INPUT_WIDTH, OUT_MASKS, TRAIN_BATCH_SIZE, VAL_BATCH_SIZE
+from utils import load_image, load_mask
 
 
 class BatchLoader(Sequence):
@@ -30,9 +28,10 @@ class BatchLoader(Sequence):
     def __len__(self):
         return int(np.floor(len(self.input_paths) / self.batch_size))
 
-    def __getitem__(self, index):
-        indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
-        X, Y = self.__data_generation(indexes)
+    def __getitem__(self, batch_index):
+        element_indexes = self.indexes[batch_index * self.batch_size:(batch_index + 1) * self.batch_size]
+
+        X, Y = self.__data_generation(element_indexes)
         return X, Y
 
     def on_epoch_end(self):
@@ -40,13 +39,13 @@ class BatchLoader(Sequence):
         if self.shuffle:
             np.random.shuffle(self.indexes)
 
-    def __data_generation(self, list_idx):
+    def __data_generation(self, element_indexes):
         X = np.empty((self.batch_size, INPUT_HEIGHT, INPUT_WIDTH, INP_CHANNELS), dtype=np.float32)
         Y = np.empty((self.batch_size, INPUT_HEIGHT, INPUT_WIDTH, OUT_MASKS), dtype=np.float32)
         
-        for i_batch, idx in enumerate(list_idx):
-            image_path = self.input_paths[idx]
-            mask_path = self.mask_paths[idx]
+        for index, element_index in enumerate(element_indexes):
+            image_path = self.input_paths[element_index]
+            mask_path = self.mask_paths[element_index]
 
             # Load image and mask from disk
             image = load_image(image_path)
@@ -57,7 +56,7 @@ class BatchLoader(Sequence):
                 augment = self.augment_class(seed=random.randint(0,100))
                 image, mask = augment(image, mask)
 
-            X[i_batch, :, :, :] = image
-            Y[i_batch, :, :, :] = mask
+            X[index, :, :, :] = image
+            Y[index, :, :, :] = mask
 
         return X, Y

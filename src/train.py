@@ -1,18 +1,18 @@
-
+from datetime import datetime
 import os
-from keras.callbacks import ModelCheckpoint, CSVLogger
-from sklearn.model_selection import train_test_split
 import tensorflow as tf
+from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, ReduceLROnPlateau # type: ignore
+from sklearn.model_selection import train_test_split
 from BatchLoader import BatchLoader
-from Config import EPOCHS, LR, MOMENTUM, DatasetRegistry
+from config import DECAYING_FACTOR, EPOCHS, LR, MIN_LR, PATIENCE, DatasetRegistry
 from models.UNetL import UNetL
-from utils import DiceLoss, bce_dice_loss, config_gpu, get_image_filepaths
+from utils import DiceLoss, BCEDiceLoss, config_gpu, get_image_filepaths
 from transunet import TransUNet
 
 # Prepare GPU
 config_gpu()
 
-dataset: DatasetRegistry = DatasetRegistry.PALSAR
+dataset = DatasetRegistry.PALSAR
 
 # Get file paths for images and masks
 train_img_paths = get_image_filepaths(dataset.TRAIN_IMAGES_PATH)
@@ -41,43 +41,56 @@ model = UNetL()
 print("Modello creato con successo!")
 
 # Decaying learning rate
-steps_per_epoch = 1
-lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-    LR,
-    decay_steps=steps_per_epoch * 2,
-    decay_rate=0.7,
-    staircase=True)
+lr_scheduler = ReduceLROnPlateau(
+    monitor='val_loss',
+    factor=DECAYING_FACTOR,
+    patience=PATIENCE, 
+    min_lr=MIN_LR,      # Don't reduce LR below this
+    verbose=1
+)
 
 # Select optimizer
-optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule, beta_1=MOMENTUM)
+# Without scheduler set LR = 1e-4
+optimizer = tf.keras.optimizers.Adam(learning_rate=LR)
 
-# IoU metric
-iou = tf.keras.metrics.IoU(num_classes=2, target_class_ids=[0])
+# Losses
+bce = tf.keras.losses.BinaryCrossentropy(from_logits=False)
+dice = DiceLoss()
+bce_dice_loss = BCEDiceLoss()
+
+# Metrics
+binary_accuracy = tf.keras.metrics.BinaryAccuracy(name='binary_accuracy')
+binary_iou = tf.keras.metrics.BinaryIoU(name='binary_iou', target_class_ids=[0, 1])
 
 # Compile model
-# Da rivedere perché la binary crossentropy si basa su due classi
 model.compile(
-    loss=DiceLoss(), # should be loss='binary_crossentropy', # or loss=loss
+    loss="binary_crossentropy",
     optimizer=optimizer,
-    metrics=[iou],  # IoU metric
-    #metrics=[tf.keras.metrics.BinaryAccuracy()]  #binary_accuracy
+    metrics=[binary_accuracy, binary_iou]
 )
 
 print("Modello compilato con successo!")
 
+# Create directories for checkpoints and logs if they don't exist
+os.makedirs(f"{os.getcwd()}/checkpoints", exist_ok=True)
+os.makedirs(f"{os.getcwd()}/logs", exist_ok=True)
+
+current_datetime: str = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+
+# Create callbacks for model checkpointing and logging
 checkpoint = ModelCheckpoint(
-    filepath=f"{os.getcwd()}/checkpoints/{model.name}.hdf5",
+    filepath=f"{os.getcwd()}/checkpoints/{model.name}_{current_datetime}.hdf5",
     verbose=1,
     monitor='val_loss',
     mode='min',
-    save_best_only=False,
+    save_best_only=True,
     save_weights_only=False
     )
 
 print("Checkpoint creato con successo!")
 
 csv_logger = CSVLogger(
-    f"{os.getcwd()}/logs/{model.name}.csv",
+    f"{os.getcwd()}/logs/{model.name}_{current_datetime}.csv",
     append=True,
     separator=';'
     )
@@ -89,7 +102,7 @@ with tf.device('/GPU:0'):
         x=train_batches,
         validation_data=val_batches,
         epochs=EPOCHS,
-        callbacks=[checkpoint, csv_logger],
+        callbacks=[lr_scheduler, checkpoint, csv_logger],
         verbose=1
     )
 
