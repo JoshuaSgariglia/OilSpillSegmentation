@@ -1,33 +1,38 @@
-
 import glob
 import cv2
 import numpy as np
-import random
+from utils import load_image,load_mask
 import tensorflow as tf
 from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
-from transunet import TransUNet
-import os
-from models import UNet, DeeplabV3Plus
+#from transunet import TransUNet
+from models import UNet, UNetL, UNetPP, UNetPPL
+from config import DatasetRegistry
+import os 
+from tensorflow.keras.models import load_model
+from matplotlib.pyplot import imshow,show
 
-n_classes = 2
-k_num=10
-nbr_bins=256
-key = "cmtu" #-weights.88"
+m=load_model(f"{os.getcwd()}/checkpoints/")
 
-images_path = "dataset/test/palsar/image/"
-segs_path = "dataset/test/palsar/label/"
-result_path='dataset/test/palsar/predict/'
-output_name="unet"
 
-input_height = 256
-input_width = 256
+image_path = os.path.join(DatasetRegistry.PALSAR.TEST_IMAGES_PATH, '0.png')
+mask_path = os.path.join(DatasetRegistry.PALSAR.TEST_LABELS_PATH, '0.png')          
+           
+def Predict_image(img_Path, mask_Path, m):
+    image= load_image(img_Path)
+    mask = load_mask(mask_Path)
+    predict = m.predict(np.expand_dims(image, axis=0))
+    print(predict.shape)
+    predict = (predict[0,:,:,0] >= 0.5).astype('uint8')
+    return image, mask, predict
 
-colors = [
-    (random.randint(
-        0, 255), random.randint(
-            0, 255), random.randint(
-                0, 255)) for _ in range(n_classes)]
 
+result = Predict_image (image_path, mask_path,m)
+
+for img in result:
+    imshow(img)
+    show()
+
+ 
 ##########################################################################
 
 def compute_iou(y_true, y_pred):
@@ -45,77 +50,6 @@ def compute_iou(y_true, y_pred):
      return tmp
 
 
-def label2color(colors, n_classes, seg):
-    seg_color = np.zeros((seg.shape[0], seg.shape[1], 3))
-    for c in range(n_classes):
-        seg_color[:, :, 0] += ((seg == c) *
-                               (colors[c][0])).astype('uint8')
-        seg_color[:, :, 1] += ((seg == c) *
-                               (colors[c][1])).astype('uint8')
-        seg_color[:, :, 2] += ((seg == c) *
-                               (colors[c][2])).astype('uint8')
-    seg_color = seg_color.astype(np.uint8)
-    return seg_color
-
-
-def getcenteroffset(shape, input_height, input_width):
-    short_edge = min(shape[:2])
-    xx = int((shape[0] - short_edge) / 2)
-    yy = int((shape[1] - short_edge) / 2)
-    return xx, yy
-
-
-images = sorted(glob.glob(images_path + "*.jpg") +
-                glob.glob(images_path + "*.png") +
-                glob.glob(images_path + "*.jpeg") +
-                glob.glob(images_path + "*.tif"))
-
-segmentations = sorted(glob.glob(segs_path + "*.jpg") +
-                       glob.glob(segs_path + "*.png") + glob.glob(segs_path + "*.jpeg") +
-                       glob.glob(segs_path + "*.tif")
-                       )
-
-output_path="./output/"
-
-output_models= sorted(glob.glob(output_path + output_name+".hdf5"))
-print(output_models)
-
-'''
-#单个模型输出
-for mi in output_models:
-    if output_name in mi:
-        m = TransUNet(image_size=256, grid=(16,16), num_classes=2, pretrain=True)
-        m.load_weights(mi)
-        seg_list,pr_list=np.array([]).astype('uint8'),np.array([]).astype('uint8')
-        for i, (imgName, segName) in enumerate(zip(images, segmentations)):
-            im = cv2.imread(imgName, cv2.IMREAD_UNCHANGED)
-            
-            seg = cv2.imread(segName, 0)
-            
-            pr = m.predict(np.expand_dims(im, 0))[0]
-            pr = pr.reshape((input_height, input_width, n_classes)).argmax(axis=2)
-            
-            seg_list=(seg.flatten()/255).astype('uint8')
-            pr_list=pr.flatten().astype('uint8')
-            
-            pr = pr * 255.0
-            cv2.imwrite(result_path+os.path.basename(imgName).split('.')[0]+'_im.png', im)
-            cv2.imwrite(result_path+os.path.basename(imgName).split('.')[0]+'_pre.png', pr)
-            cv2.imwrite(result_path+os.path.basename(imgName).split('.')[0]+'_gt.png', seg)
-            try:
-                f = open ("result_"+output_name+".txt", "a")
-                print(imgName+"\t"+str(accuracy_score(seg_list,pr_list))+"\t"+
-                      str(precision_score(seg_list,pr_list))+"\t"+
-                      str(recall_score(seg_list,pr_list))+"\t"+
-                      str(f1_score(seg_list,pr_list))+"\t"+
-                      str(compute_iou(seg_list,pr_list)),file=f
-                      )    
-                f.close()
-            except Exception as r:
-                f = open ("result_"+output_name+".txt", "a")
-                print(mi,r,file=f)
-                f.close()
-'''
 # Compute all
 for mi in output_models:
     try:
@@ -124,18 +58,12 @@ for mi in output_models:
         #m = TransUNet(image_size=256, grid=(16,16), num_classes=2, pretrain=True)
         m.load_weights(mi)
         seg_list,pr_list=np.array([]).astype('uint8'),np.array([]).astype('uint8')
-        for i, (imgName, segName) in enumerate(zip(images, segmentations)):
-            im = cv2.imread(imgName, cv2.IMREAD_UNCHANGED)
-            
-            seg = cv2.imread(segName, 0)
-            
-            pr = m.predict(np.expand_dims(im, 0))[0]
-            pr = pr.reshape((input_height, input_width, n_classes)).argmax(axis=2)
-            
-            seg_list=np.hstack((seg_list,(seg.flatten()/255).astype('uint8')))
-            pr_list=np.hstack((pr_list,pr.flatten().astype('uint8')))
+        for i, (image_path, mask_path) in  :  
+            _, mask, predict = Predict_image (image_path, mask_path,m) 
+            seg_list=np.hstack((seg_list,mask.flatten().astype('uint8')))
+            pr_list=np.hstack((pr_list,predict.flatten().astype('uint8')))
 
-        f = open ("result_"+output_name+".txt", "a")
+       # f = open ("result_"+output_name+".txt", "a")
         print(mi+"\t"+str(accuracy_score(seg_list,pr_list))+"\t"+
               str(precision_score(seg_list,pr_list))+"\t"+
               str(recall_score(seg_list,pr_list))+"\t"+
@@ -154,8 +82,11 @@ for mi in output_models:
               str(f1_score(seg_list,pr_list,labels =[0,1],pos_label=0))+"\t"+
               str(compute_iou(seg_list,pr_list))
               )  
-        f.close()
+       # f.close()
     except Exception as r:
         f = open ("result_"+output_name+".txt", "a")
         print(mi,r,file=f)
         f.close()
+
+
+        
