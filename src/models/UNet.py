@@ -1,6 +1,6 @@
 
 from keras.models import Model
-from keras.layers import Input, Dropout, Conv2D, MaxPooling2D, Conv2DTranspose, concatenate
+from keras.layers import Input, Conv2D, MaxPooling2D, Conv2DTranspose, concatenate
 
 from config import INP_CHANNELS, INPUT_HEIGHT, INPUT_WIDTH
 

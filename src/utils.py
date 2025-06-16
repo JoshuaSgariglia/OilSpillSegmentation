@@ -1,55 +1,34 @@
 import glob
+import json
 import os
 import cv2
 from tensorflow.keras.losses import Loss, BinaryCrossentropy # type: ignore
 import numpy as np
 import tensorflow as tf
-from config import INPUT_HEIGHT, INPUT_WIDTH, DatasetPaths, DatasetRegistry
+from config import INPUT_HEIGHT, INPUT_WIDTH, DatasetPaths, Parameters
 from numpy.typing import NDArray
 from numpy import float32
-#from tensorflow.keras.models import DnCNN  # type: ignore # from husqin/DnCNN-keras
+import logging
 
-'''
+
 # Denoising
-def apply_DnCNN_denoising():
-    """
-    Denoise a grayscale image using a pretrained DnCNN model.
-    The model is trained to remove Gaussian noise from images.
-    """
-    # Load noisy grayscale image
-    noisy = cv2.imread('noisy_gray.png', cv2.IMREAD_GRAYSCALE)
-    noisy = noisy.astype(np.float32) / 255.0
+# Gaussian Blur
+def apply_gaussian_blur(image: NDArray[float32]) -> NDArray[float32]:
+    return cv2.GaussianBlur(image, (5, 5), 1)
 
-    # Load pretrained model
-    model = DnCNN()  # initializes architecture
-    model.load_weights('snapshot/dncnn_gray_noise25.h5')  # pretrained weights
+# Median Filter
+def apply_median_blur(image: NDArray[float32]) -> NDArray[float32]:
+    return cv2.medianBlur((image * 255).astype(np.uint8), 3) / 255.0
 
-    # Preprocess: add channel & batch dims
-    inp = noisy[np.newaxis, ..., np.newaxis]
+# Bilateral Filter
+def apply_bilateral_filter(image: NDArray[float32], d=9, sigma_color=75, sigma_space=75) -> NDArray[float32]:
+    return cv2.bilateralFilter((image * 255).astype(np.uint8), d, sigma_color, sigma_space) / 255.0
 
-    # Denoise
-    denoised = model.predict(inp)[0, ..., 0]
+# Box Filter
+def apply_box_filter(image: NDArray[float32]) -> NDArray[float32]:
+    return cv2.boxFilter(image, (5, 5), 1)
+    
 
-    # Save result
-    cv2.imwrite('denoised.png', (denoised * 255).astype(np.uint8))
-
-# Load noisy grayscale image
-noisy = cv2.imread('noisy_gray.png', cv2.IMREAD_GRAYSCALE)
-noisy = noisy.astype(np.float32) / 255.0
-
-# Load pretrained model
-model = DnCNN()  # initializes architecture
-model.load_weights('snapshot/dncnn_gray_noise25.h5')  # pretrained weights
-
-# Preprocess: add channel & batch dims
-inp = noisy[np.newaxis, ..., np.newaxis]
-
-# Denoise
-denoised = model.predict(inp)[0, ..., 0]
-
-# Save result
-cv2.imwrite('denoised.png', (denoised * 255).astype(np.uint8))
-'''
 
 # Losses
 class DiceLoss(Loss):
@@ -73,7 +52,34 @@ class BCEDiceLoss(Loss):
         bce_loss = self.bce(y_true, y_pred)
         dice_loss = self.dice(y_true, y_pred)
         return (bce_loss + dice_loss) / 2.0
-
+    
+    
+# Logger
+def setup_logger(log_file: str, level=logging.INFO):
+    """Set up a logger that logs to both console and file."""
+    
+    # Create a logger
+    logger = logging.getLogger()
+    logger.setLevel(level)
+    logger.propagate = False  # Prevent log duplication if multiple handlers
+    
+    # Formatter for log messages
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    
+    # Console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    
+    # File handler
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setFormatter(formatter)
+    
+    # Add handlers if not already added
+    if not logger.handlers:
+        logger.addHandler(console_handler)
+        logger.addHandler(file_handler)
+    
+    return logger
 
 # GPU \ System
 def config_gpu():
@@ -125,9 +131,20 @@ def preprocess_mask(mask: NDArray[float32]) -> NDArray[float32]:
     return mask
 
 # Loading image file
-def load_image(filepath: str):
+def load_image(filepath: str) -> NDArray[float32]:
     return load_data(filepath, preprocess_image)
 
 # Loading image file
-def load_mask(filepath: str):
+def load_mask(filepath: str) -> NDArray[float32]:
     return load_data(filepath, preprocess_mask)
+
+# Saving parameters
+def save_parameters(save_path: str, parameters: Parameters) -> None:
+    with open(os.path.join(save_path, "parameters.json"), "w") as outfile:
+        json.dump(parameters.__dict__, outfile)
+        
+# Loading parameters
+def load_parameters(save_path: str) -> Parameters:
+    with open(os.path.join(save_path, "parameters.json"), "r") as infile:
+        params_dict = json.load(infile)
+        return Parameters(**params_dict)
