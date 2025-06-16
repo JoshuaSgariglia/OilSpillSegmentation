@@ -1,9 +1,9 @@
 import os
-from config import DatasetRegistry, Parameters, Paths
+from config import DatasetRegistry, Paths
 from models.UNetL import UNetL
 from predict import EvaluationSession
 from train import TrainingSession
-from utils import config_gpu, setup_logger
+from utils.misc import Parameters, config_gpu, current_datetime, setup_logger
 
 
 def main():
@@ -11,13 +11,12 @@ def main():
     config_gpu()
     
     # Create directory for logs if it doesn't exist
-    log_path = os.path.join(os.getcwd(), "logs")
-    os.makedirs(log_path, exist_ok=True)
+    os.makedirs(Paths.LOGS, exist_ok=True)
     
     # Instantiate objects needed for training
     models = [UNetL()]
     params = [Parameters()]
-    logger = setup_logger(os.path.join(log_path, f"log_{Paths.current_datetime()}.txt"))
+    logger = setup_logger(os.path.join(Paths.LOGS, f"log_{current_datetime()}.txt"))
     
     # Initialize objects needed for evaluation
     model_names = [model.name for model in models]

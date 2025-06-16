@@ -2,7 +2,7 @@ import random
 from tensorflow.keras.utils import Sequence # type: ignore
 import numpy as np
 from config import INP_CHANNELS, INPUT_HEIGHT, INPUT_WIDTH, OUT_MASKS, TRAIN_BATCH_SIZE, VAL_BATCH_SIZE
-from utils import load_image, load_mask
+from utils.DatasetUtils import DatasetUtils
 
 
 class BatchLoader(Sequence):
@@ -48,8 +48,8 @@ class BatchLoader(Sequence):
             mask_path = self.mask_paths[element_index]
 
             # Load image and mask from disk
-            image = load_image(image_path)
-            mask = load_mask(mask_path)
+            image = DatasetUtils.load_image(image_path)
+            mask = DatasetUtils.load_mask(mask_path)
 
             # Augment
             if self.augment_class is not None:
