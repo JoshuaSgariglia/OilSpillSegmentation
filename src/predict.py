@@ -8,29 +8,9 @@ from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, r
 from models import UNet, UNetL, UNetPP, UNetPPL
 from config import DatasetRegistry
 import os 
-from tensorflow.keras.models import load_model
-from matplotlib.pyplot import imshow,show
-
-m=load_model(f"{os.getcwd()}/checkpoints/")
-
-
-image_path = os.path.join(DatasetRegistry.PALSAR.TEST_IMAGES_PATH, '0.png')
-mask_path = os.path.join(DatasetRegistry.PALSAR.TEST_LABELS_PATH, '0.png')          
-           
-def Predict_image(img_Path, mask_Path, m):
-    image= load_image(img_Path)
-    mask = load_mask(mask_Path)
-    predict = m.predict(np.expand_dims(image, axis=0))
-    print(predict.shape)
-    predict = (predict[0,:,:,0] >= 0.5).astype('uint8')
-    return image, mask, predict
-
-
-result = Predict_image (image_path, mask_path,m)
-
-for img in result:
-    imshow(img)
-    show()
+from tensorflow.keras.models import load_model # type: ignore
+from matplotlib import pyplot as plt
+from PIL import Image
 
  
 ##########################################################################
@@ -50,16 +30,16 @@ def compute_iou(y_true, y_pred):
      return tmp
 
 
+'''
 # Compute all
 for mi in output_models:
     try:
-        m = DeeplabV3Plus.DeeplabV3Plus(n_classes, input_height=input_height, input_width=input_width)
         #m = UNet.UNet(n_classes, input_height=input_height, input_width=input_width)
         #m = TransUNet(image_size=256, grid=(16,16), num_classes=2, pretrain=True)
         m.load_weights(mi)
         seg_list,pr_list=np.array([]).astype('uint8'),np.array([]).astype('uint8')
         for i, (image_path, mask_path) in  :  
-            _, mask, predict = Predict_image (image_path, mask_path,m) 
+            _, mask, predict = predict_image (image_path, mask_path,m) 
             seg_list=np.hstack((seg_list,mask.flatten().astype('uint8')))
             pr_list=np.hstack((pr_list,predict.flatten().astype('uint8')))
 
@@ -87,6 +67,38 @@ for mi in output_models:
         f = open ("result_"+output_name+".txt", "a")
         print(mi,r,file=f)
         f.close()
+'''
 
 
-        
+
+
+print(os.getcwd())
+m=load_model(f"{os.getcwd()}/checkpoints/UNetL_2025-06-14_21-28-02.hdf5")
+
+
+image_path = os.path.join(DatasetRegistry.PALSAR.TEST_IMAGES_PATH, '123.png')
+mask_path = os.path.join(DatasetRegistry.PALSAR.TEST_LABELS_PATH, '123.png')          
+           
+def predict_image(img_Path, mask_Path, m):
+    image = load_image(img_Path)
+    mask = load_mask(mask_Path)
+    
+    predict = m.predict(np.expand_dims(image, axis=0))
+    
+    image = image[:, :, 0]  # Remove the last dimension
+    mask = mask[:, :, 0]    # Remove the last dimension
+    predict = (predict[0,:,:,0] >= 0.5).astype('uint8')
+    
+    return image, mask, predict
+
+
+image, mask, predict = predict_image(image_path, mask_path, m)
+print(mask)
+                                     
+os.makedirs(f"{os.getcwd()}/output", exist_ok=True)
+Image.fromarray((image).astype(np.uint8)).save(os.path.join(os.getcwd(), "output", "image.png"))
+Image.fromarray((mask*255.0).astype(np.uint8)).save(os.path.join(os.getcwd(), "output", "mask.png"))
+Image.fromarray((predict*255.0).astype(np.uint8)).save(os.path.join(os.getcwd(), "output", "predict.png"))
+
+print(compute_iou(mask.flatten(), predict.flatten()))
+print(accuracy_score(mask.flatten(), predict.flatten()))

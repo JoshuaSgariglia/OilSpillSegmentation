@@ -7,6 +7,49 @@ import tensorflow as tf
 from config import INPUT_HEIGHT, INPUT_WIDTH, DatasetPaths, DatasetRegistry
 from numpy.typing import NDArray
 from numpy import float32
+#from tensorflow.keras.models import DnCNN  # type: ignore # from husqin/DnCNN-keras
+
+'''
+# Denoising
+def apply_DnCNN_denoising():
+    """
+    Denoise a grayscale image using a pretrained DnCNN model.
+    The model is trained to remove Gaussian noise from images.
+    """
+    # Load noisy grayscale image
+    noisy = cv2.imread('noisy_gray.png', cv2.IMREAD_GRAYSCALE)
+    noisy = noisy.astype(np.float32) / 255.0
+
+    # Load pretrained model
+    model = DnCNN()  # initializes architecture
+    model.load_weights('snapshot/dncnn_gray_noise25.h5')  # pretrained weights
+
+    # Preprocess: add channel & batch dims
+    inp = noisy[np.newaxis, ..., np.newaxis]
+
+    # Denoise
+    denoised = model.predict(inp)[0, ..., 0]
+
+    # Save result
+    cv2.imwrite('denoised.png', (denoised * 255).astype(np.uint8))
+
+# Load noisy grayscale image
+noisy = cv2.imread('noisy_gray.png', cv2.IMREAD_GRAYSCALE)
+noisy = noisy.astype(np.float32) / 255.0
+
+# Load pretrained model
+model = DnCNN()  # initializes architecture
+model.load_weights('snapshot/dncnn_gray_noise25.h5')  # pretrained weights
+
+# Preprocess: add channel & batch dims
+inp = noisy[np.newaxis, ..., np.newaxis]
+
+# Denoise
+denoised = model.predict(inp)[0, ..., 0]
+
+# Save result
+cv2.imwrite('denoised.png', (denoised * 255).astype(np.uint8))
+'''
 
 # Losses
 class DiceLoss(Loss):
@@ -78,7 +121,7 @@ def preprocess_image(image: NDArray[float32]) -> NDArray[float32]:
 
 def preprocess_mask(mask: NDArray[float32]) -> NDArray[float32]:
     mask = mask.astype(np.float32) / 255.0
-    mask = (mask > 0.5).astype(np.float32)  # Binarize
+    mask = (mask >= 0.5).astype(np.float32)  # Binarize
     return mask
 
 # Loading image file

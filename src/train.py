@@ -75,7 +75,7 @@ print("Modello compilato con successo!")
 os.makedirs(f"{os.getcwd()}/checkpoints", exist_ok=True)
 os.makedirs(f"{os.getcwd()}/logs", exist_ok=True)
 
-current_datetime: str = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+current_datetime: str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 # Create callbacks for model checkpointing and logging
 checkpoint = ModelCheckpoint(
