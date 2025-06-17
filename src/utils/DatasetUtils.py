@@ -67,7 +67,7 @@ class DatasetUtils:
         image = cv2.imread(filepath, cv2.IMREAD_UNCHANGED)
         image = image[:, :, 0]
         image = cv2.resize(image, (INPUT_WIDTH, INPUT_HEIGHT))
-        image = preprocessing(image)
+        image = preprocessing(image) 
         image = np.expand_dims(image, axis=-1)  # (H, W, 1)
 
         return image
@@ -75,6 +75,14 @@ class DatasetUtils:
     # Preprocessing logic for image
     @staticmethod
     def preprocess_image(image: NDArray[float32]) -> NDArray[float32]:
+
+        image = Denoiser.fastNlMeans(image)
+        #image = Denoiser.bilateral_filter(image)
+        #image = Denoiser.median_blur(image)
+        #image = Denoiser.box_filter(image)
+        #image = Denoiser.gaussian_blur(image)
+
+
         #image = image.astype(np.float32) / 255.0
         image = (image - np.mean(image))/np.std(image)
 
