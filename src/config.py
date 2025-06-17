@@ -45,6 +45,8 @@ class Paths:
     LOGS = os.path.join(os.getcwd(), "logs")
     PREDICTIONS = os.path.join(os.getcwd(), "prediction_test")
     SAVES = os.path.join(os.getcwd(), "saves")
+    DENOISING = os.path.join(os.getcwd(), "denoising_test") 
+
     
 # Interface for DatasetRegistry attributes
 @dataclass
@@ -53,6 +55,7 @@ class DatasetPaths:
     TRAIN_LABELS_PATH: str
     TEST_IMAGES_PATH: str
     TEST_LABELS_PATH: str
+
 
 # Dataset registry for different datasets
 class DatasetRegistry:

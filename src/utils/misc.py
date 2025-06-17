@@ -11,27 +11,7 @@ from numpy.typing import NDArray
 from numpy import float32
 
 
-# Denoising
-class Denoiser:
-    # Gaussian Blur
-    @staticmethod
-    def gaussian_blur(image: NDArray[float32]) -> NDArray[float32]:
-        return cv2.GaussianBlur(image, (5, 5), 1)
 
-    # Median Filter
-    @staticmethod
-    def median_blur(image: NDArray[float32]) -> NDArray[float32]:
-        return cv2.medianBlur((image * 255).astype(np.uint8), 3) / 255.0
-
-    # Bilateral Filter
-    @staticmethod
-    def bilateral_filter(image: NDArray[float32], d=9, sigma_color=75, sigma_space=75) -> NDArray[float32]:
-        return cv2.bilateralFilter((image * 255).astype(np.uint8), d, sigma_color, sigma_space) / 255.0
-
-    # Box Filter
-    @staticmethod
-    def box_filter(image: NDArray[float32]) -> NDArray[float32]:
-        return cv2.boxFilter(image, (5, 5), 1)
     
 
 # Losses

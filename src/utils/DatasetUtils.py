@@ -1,10 +1,36 @@
 import glob
 import os
+from tkinter import Image
 import cv2
 import numpy as np
 from numpy.typing import NDArray
 from numpy import float32
-from config import INPUT_HEIGHT, INPUT_WIDTH, DatasetPaths
+from config import INPUT_HEIGHT, INPUT_WIDTH, DatasetPaths, DatasetRegistry, Paths
+
+
+# Denoising
+class Denoiser:
+    # Gaussian Blur
+    @staticmethod
+    def gaussian_blur(image: NDArray[float32]) -> NDArray[float32]:
+        return cv2.GaussianBlur(image, (5, 5), 1)
+
+    # Median Filter
+    @staticmethod
+    def median_blur(image: NDArray[float32]) -> NDArray[float32]:
+        return cv2.medianBlur((image ).astype(np.uint8), 3) 
+
+    # Bilateral Filter
+    @staticmethod
+    def bilateral_filter(image: NDArray[float32], d=9, sigma_color=75, sigma_space=75) -> NDArray[float32]:
+        return cv2.bilateralFilter((image ).astype(np.uint8), d, sigma_color, sigma_space) 
+
+    # Box Filter
+    @staticmethod
+    def box_filter(image: NDArray[float32]) -> NDArray[float32]:
+        return cv2.boxFilter(image, (5, 5), 1)
+
+
 
 class DatasetUtils:
     # Get image file paths
@@ -60,3 +86,30 @@ class DatasetUtils:
     @classmethod
     def load_mask(cls, filepath: str) -> NDArray[float32]:
         return cls.load_data(filepath, cls.preprocess_mask)
+    
+if __name__ == "__main__":
+    image_path = os.path.join(DatasetRegistry.PALSAR.TEST_IMAGES_PATH, '123.png')
+    mask_path = os.path.join(DatasetRegistry.PALSAR.TEST_LABELS_PATH, '123.png')    
+     
+    image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)  
+    mask = cv2.imread(mask_path, cv2.IMREAD_UNCHANGED)  
+
+    image_gaussian = Denoiser.gaussian_blur(image)
+    image_median = Denoiser.median_blur(image)
+    image_bilateral = Denoiser.bilateral_filter(image)
+    image_box = Denoiser.box_filter(image)
+
+  
+    os.makedirs(Paths.DENOISING, exist_ok=True)
+    Image.fromarray((image_gaussian).astype(np.uint8)).save(os.path.join(Paths.DENOISING, "gaussian.png"))
+    Image.fromarray((image_median).astype(np.uint8)).save(os.path.join(Paths.DENOISING, "median.png"))
+    Image.fromarray((image_bilateral).astype(np.uint8)).save(os.path.join(Paths.DENOISING, "bilateral.png"))
+    Image.fromarray((image_box).astype(np.uint8)).save(os.path.join(Paths.DENOISING, "box.png"))
+    Image.fromarray((image).astype(np.uint8)).save(os.path.join(Paths.DENOISING, "image.png"))
+    Image.fromarray((mask).astype(np.uint8)).save(os.path.join(Paths.DENOISING, "mask.png"))
+
+    
+   
+
+
+   
