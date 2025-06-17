@@ -22,10 +22,7 @@ class TrainingSession:
         logger.info("Training session initialization started")
         
         # Get file paths for images and masks
-        self.train_img_paths = DatasetUtils.get_image_filepaths(dataset.TRAIN_IMAGES_PATH)
-        self.train_mask_paths = DatasetUtils.get_image_filepaths(dataset.TRAIN_LABELS_PATH)
-        test_img_paths = DatasetUtils.get_image_filepaths(dataset.TEST_IMAGES_PATH)
-        test_mask_paths = DatasetUtils.get_image_filepaths(dataset.TEST_LABELS_PATH)
+        self.train_img_paths, self.train_mask_paths, test_img_paths, test_mask_paths = DatasetUtils.get_dataset_filepaths(dataset, True)
 
         # Split test set into validation and test sets (50/50 split, stratify if possible)
         self.val_img_paths, self.test_img_paths, self.val_mask_paths, self.test_mask_paths = train_test_split(
@@ -179,28 +176,26 @@ class TrainingAndEvaluationSession:
                 self.logger.info(f"Started training and evaluating model {model.name} on parameter set {index + 1} out of {parameters_list_len}")
                 
                 # Train the model
-                training_time=timeit.timeit(training_session.train(model, parameters, index, parameters_list_len))
+                training_time = timeit.timeit(lambda: training_session.train(model, parameters, index, parameters_list_len), number = 1)
                 
                 # Evaluate the model
-                evaluation_time=timeit.timeit( EvaluationSession.evaluate(
+                evaluation_time = timeit.timeit(lambda: EvaluationSession.evaluate(
                     training_session.test_img_paths, 
                     training_session.test_mask_paths, 
                     model, 
                     SavesManager.CURRENT_SAVE_PATHS.DIRECTORY_NAME, 
                     self.logger
-                ))
+                ), number = 1)
 
                 time_dict = {
                     "training_time": training_time,
                     "evaluation_time": evaluation_time,
-                    "training_time_per_epoch": training_time / parameters.EPOCHS
+                    "training_time_per_epoch": training_time / parameters.EPOCHS,
+                    "inference_time": evaluation_time / len(training_session.test_img_paths)
                 }
 
                 # Save time metrics
-                SavesManager.save_json(
-                    SavesManager.CURRENT_SAVE_PATHS.TIME,
-                    time_dict
-                )
+                SavesManager.save_time_metrics(time_dict)
                 
                 self.logger.info(f"Completed training and evaluation of model {model.name} on parameter set {index + 1} out of {parameters_list_len}")
             

@@ -1,8 +1,11 @@
 from config import DatasetRegistry
 from models.UNetL import UNetL
-from utils.DatasetUtils import test_denoising
+from utils.DatasetUtils import DatasetUtils
 from train import TrainingAndEvaluationSession
 from utils.misc import Parameters, config_gpu, setup_logger
+
+test_denoising = DatasetUtils.test_denoising
+denoise_dataset = DatasetUtils.denoise_dataset
 
 def train_eval_session():
     # Instantiate objects needed for training and evaluation
@@ -18,8 +21,10 @@ def train_eval_session():
 def main():
     # Prepare GPU
     config_gpu()
-    
-    test_denoising()
+
+    train_eval_session()
+    #test_denoising()
+    #denoise_dataset()
 
 if __name__ == "__main__":
     main()

@@ -81,6 +81,17 @@ class SavesManager:
         evaluation_dict = cls.load_json(cls.CURRENT_SAVE_PATHS.EVALUATION)
         return evaluation_dict
     
+    # Save time in JSON file
+    @classmethod
+    def save_time_metrics(cls, time_metrics: dict) -> None:
+        cls.save_json(cls.CURRENT_SAVE_PATHS.TIME, time_metrics)
+            
+    # Loading time from JSON file
+    @classmethod
+    def load_time_metrics(cls) -> dict:
+        time_metrics_dict = cls.load_json(cls.CURRENT_SAVE_PATHS.TIME)
+        return time_metrics_dict
+    
     # Loading evaluation from JSON file
     @classmethod
     def load_model(cls) -> Model:
