@@ -1,4 +1,5 @@
 from logging import Logger
+import timeit
 import tensorflow as tf
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, ReduceLROnPlateau # type: ignore
 from sklearn.model_selection import train_test_split
@@ -178,15 +179,27 @@ class TrainingAndEvaluationSession:
                 self.logger.info(f"Started training and evaluating model {model.name} on parameter set {index + 1} out of {parameters_list_len}")
                 
                 # Train the model
-                training_session.train(model, parameters, index, parameters_list_len)
+                training_time=timeit.timeit(training_session.train(model, parameters, index, parameters_list_len))
                 
                 # Evaluate the model
-                EvaluationSession.evaluate(
+                evaluation_time=timeit.timeit( EvaluationSession.evaluate(
                     training_session.test_img_paths, 
                     training_session.test_mask_paths, 
                     model, 
                     SavesManager.CURRENT_SAVE_PATHS.DIRECTORY_NAME, 
                     self.logger
+                ))
+
+                time_dict = {
+                    "training_time": training_time,
+                    "evaluation_time": evaluation_time,
+                    "training_time_per_epoch": training_time / parameters.EPOCHS
+                }
+
+                # Save time metrics
+                SavesManager.save_json(
+                    SavesManager.CURRENT_SAVE_PATHS.TIME,
+                    time_dict
                 )
                 
                 self.logger.info(f"Completed training and evaluation of model {model.name} on parameter set {index + 1} out of {parameters_list_len}")
