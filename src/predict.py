@@ -13,7 +13,8 @@ from keras.models import Model
  
 class EvaluationSession:
 
-    def __init__(self, image_paths: list[str], mask_paths: list[str], model_names: list[str], logger: Logger):
+    def __init__(self, saves_dir: str, image_paths: list[str], mask_paths: list[str], model_names: list[str], logger: Logger):
+        self.saves_dir = saves_dir
         self.image_paths = image_paths
         self.mask_paths = mask_paths
         self.model_names = model_names
@@ -37,7 +38,7 @@ class EvaluationSession:
             for model_dir_name in model_dir_names:
                 
                 # Get save paths for the model
-                model_save_paths = SavesManager.set_save_paths(model_dir_name)
+                model_save_paths = SavesManager.set_save_paths(self.saves_dir, model_dir_name)
                 
                 # Only evaluates models not already evaluated
                 if not os.path.isfile(model_save_paths.EVALUATION):
@@ -70,6 +71,8 @@ class EvaluationSession:
         # Initialize empty tensors
         seg_list, pr_list = np.array([]).astype('uint8'), np.array([]).astype('uint8')
         
+        logger.info("Evaluating model...")
+        
         # Predict the image
         for image_path, mask_path in zip(image_paths, mask_paths):  
             mask, predict = cls.predict_image(image_path, mask_path, model) 
@@ -97,7 +100,7 @@ class EvaluationSession:
             precision = np.mean(list(precision)),
             recall_background = recall[0],
             recall_oil_spill = recall[1],
-            recall = np.mean(list(precision)),
+            recall = np.mean(list(recall)),
             f1_background = f1[0],
             f1_oil_spill = f1[1],
             f1 = np.mean(f1),
@@ -162,17 +165,18 @@ class EvaluationSession:
         print(f"Recall: {recall_score(mask, prediction, average = None)}")
         print(f"F1 Score: {f1_score(mask, prediction, average = None)}")
         print(f"IoU: {cls.compute_iou(conf_matrix)}")
+        
+    def test_prediction(image_number: int = 123):
+        # Test single image
+        image_path = os.path.join(DatasetRegistry.PALSAR.TEST_IMAGES_PATH, f'{image_number}.png')
+        mask_path = os.path.join(DatasetRegistry.PALSAR.TEST_LABELS_PATH, f'{image_number}.png') 
 
+        # Load model
+        model = load_model(f"{os.getcwd()}/saves/palsar/UNetL/UNetL_2025-06-16_17-37-57_for_testing/model.hdf5")
+
+        EvaluationSession.predict_and_save_image(image_path, mask_path, model)
 
 
 if __name__ == "__main__":
-    # Test single image
-    image_path = os.path.join(DatasetRegistry.PALSAR.TEST_IMAGES_PATH, '123.png')
-    mask_path = os.path.join(DatasetRegistry.PALSAR.TEST_LABELS_PATH, '123.png') 
-    
-    # Load model
-    model = load_model(f"{os.getcwd()}/saves/UNetL/UNetL_2025-06-16_17-37-57/model.hdf5")
-    
-    EvaluationSession.predict_and_save_image(image_path, mask_path, model)
-    
+    EvaluationSession.test_prediction()
     

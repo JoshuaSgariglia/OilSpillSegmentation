@@ -1,11 +1,14 @@
 from __future__ import annotations
+from abc import ABC, abstractmethod
 from datetime import datetime
 import os
 import logging
+from keras.models import Model
 from tensorflow.keras.losses import Loss, BinaryCrossentropy # type: ignore
 import tensorflow as tf
-from config import DATETIME_FORMAT, DECAYING_FACTOR, DECAYING_FACTOR_VALUES, DROPOUT_RATE, EPOCHS, LOG_FILENAME, LR, MIN_LR, PATIENCE, PATIENCE_VALUES, TRAIN_BATCH_SIZE, TRAIN_BATCH_SIZE_VALUES, VAL_BATCH_SIZE, VAL_BATCH_SIZE_VALUES, Paths
-from numpy.typing import NDArray
+from config import DATETIME_FORMAT, LOG_FILENAME, Paths
+
+from dataclass import ParametersValues, Parameters
     
 
 # Losses
@@ -30,6 +33,31 @@ class BCEDiceLoss(Loss):
         bce_loss = self.bce(y_true, y_pred)
         dice_loss = self.dice(y_true, y_pred)
         return (bce_loss + dice_loss) / 2.0
+    
+# Custom Parameter Loader class for models
+class ParametersLoaderModel(Model):
+    def get_parameters_values():
+        raise NotImplementedError("Method not implemented")
+    
+    # Generate a list of Parameters from a ParametersValues object
+    def generate_parameters_list(self, parameters_values: ParametersValues) -> list[Parameters]:
+        # Initialize empty Parameters list
+        parameters_list: list[Parameters] = []
+        
+        # Get all possible combinations
+        for batch_size in parameters_values.BATCH_SIZE_VALUES:
+            for decaying_factor in parameters_values.DECAYING_FACTOR_VALUES:
+                for patience in parameters_values.PATIENCE_VALUES:
+                    parameters_list.append(Parameters(
+                        batch_size,
+                        decaying_factor, 
+                        patience,
+                        parameters_values.EPOCHS,
+                        parameters_values.LR,
+                        parameters_values.MIN_LR
+                        ))
+        
+        return parameters_list
     
     
 # Logger
@@ -83,75 +111,7 @@ def config_gpu():
         # GPU memory allocation expands as needed
         tf.config.experimental.set_memory_growth(device=gpu, enable=True)
 
-
 # Get current datetime
 def current_datetime() -> str:
     return datetime.now().strftime(DATETIME_FORMAT)
 
-# Parameter model class
-class Parameters:
-    def __init__(self, 
-        TRAIN_BATCH_SIZE: int = TRAIN_BATCH_SIZE,
-        VAL_BATCH_SIZE: int = VAL_BATCH_SIZE,
-        DECAYING_FACTOR: float = DECAYING_FACTOR,
-        PATIENCE: int = PATIENCE,
-        EPOCHS: int = EPOCHS,
-        DROPOUT_RATE: float = DROPOUT_RATE,   
-        LR: float = LR,
-        MIN_LR: float = MIN_LR,     
-    ):
-        self.TRAIN_BATCH_SIZE = TRAIN_BATCH_SIZE
-        self.VAL_BATCH_SIZE = VAL_BATCH_SIZE
-        self.DECAYING_FACTOR = DECAYING_FACTOR
-        self.PATIENCE = PATIENCE
-        self.EPOCHS = EPOCHS
-        self.DROPOUT_RATE = DROPOUT_RATE
-        self.LR = LR
-        self.MIN_LR = MIN_LR
-    
-    @classmethod
-    def generate(cls) -> list[Parameters]:
-        parameters_list: list[Parameters] = []
-        for train_batch_size in TRAIN_BATCH_SIZE_VALUES:
-            for val_batch_size in VAL_BATCH_SIZE_VALUES:
-                for decaying_factor in DECAYING_FACTOR_VALUES:
-                    for patience in PATIENCE_VALUES:
-                        parameters_list.append(cls(
-                            train_batch_size, 
-                            val_batch_size, 
-                            decaying_factor, 
-                            patience
-                            ))
-        
-        return parameters_list
-    
-# Model classes
-
-# Evaluation model class
-class Evaluation:
-    def __init__(self, 
-        confusion_matrix: NDArray,
-        accuracy: float,
-        precision_values: NDArray,
-        recall_values: NDArray,
-        f1_score_values: NDArray,
-         
-    ):
-        self.CONFUSION_MATRIX = confusion_matrix.tolist()
-        self.ACCURACY = accuracy
-    
-    @classmethod
-    def generate(cls) -> list[Parameters]:
-        parameters_list: list[Parameters] = []
-        for train_batch_size in TRAIN_BATCH_SIZE_VALUES:
-            for val_batch_size in VAL_BATCH_SIZE_VALUES:
-                for decaying_factor in DECAYING_FACTOR_VALUES:
-                    for patience in PATIENCE_VALUES:
-                        parameters_list.append(cls(
-                            train_batch_size, 
-                            val_batch_size, 
-                            decaying_factor, 
-                            patience
-                            ))
-        
-        return parameters_list

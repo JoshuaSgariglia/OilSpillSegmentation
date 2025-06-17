@@ -1,8 +1,8 @@
 from __future__ import annotations
 import json
 import os
-from config import Paths, SaveFilename
-from utils.misc import current_datetime, Parameters, setup_logger
+from config import SaveFilename
+from utils.misc import current_datetime, Parameters
 from keras.models import Model
 from tensorflow.keras.models import load_model # type: ignore     
 
@@ -18,28 +18,28 @@ class SavesManager:
     
     # Get path for saves of a type of model (e.g. UNet)
     @staticmethod
-    def get_model_type_saves_path(model_name: str) -> str:
-        return os.path.join(Paths.SAVES, model_name)
+    def get_model_type_saves_path(model_name: str, saves_dir: str) -> str:
+        return os.path.join(saves_dir, model_name)
     
     @classmethod
-    def get_model_saves_path(cls, model_dir_name: str) -> str:
+    def get_model_saves_path(cls, model_dir_name: str, saves_dir: str) -> str:
         model_name = model_dir_name.split('_')[0]
-        return os.path.join(cls.get_model_type_saves_path(model_name), model_dir_name)
+        return os.path.join(cls.get_model_type_saves_path(model_name, saves_dir), model_dir_name)
     
     @classmethod
-    def generate_model_saves_path(cls, model_name: str) -> str:
-        return os.path.join(cls.get_model_type_saves_path(model_name), cls.generate_model_dir_name(model_name))
+    def generate_model_saves_path(cls, model_name: str, saves_dir: str) -> str:
+        return os.path.join(cls.get_model_type_saves_path(model_name, saves_dir), cls.generate_model_dir_name(model_name))
     
     # Generate and set new save paths for a specific model
     @classmethod
-    def set_generated_save_paths(cls, model_name: str) -> SavePaths:
-        cls.CURRENT_SAVE_PATHS = cls.SavePaths.GenerateFromModelName(model_name)
+    def set_generated_save_paths(cls, saves_dir: str, model_name: str) -> SavePaths:
+        cls.CURRENT_SAVE_PATHS = cls.SavePaths.GenerateFromModelName(saves_dir, model_name)
         return cls.CURRENT_SAVE_PATHS
     
     # Set new save paths manually
     @classmethod
-    def set_save_paths(cls, model_dir_name: str) -> SavePaths:
-        cls.CURRENT_SAVE_PATHS = cls.SavePaths(model_dir_name)
+    def set_save_paths(cls, saves_dir: str, model_dir_name: str) -> SavePaths:
+        cls.CURRENT_SAVE_PATHS = cls.SavePaths(saves_dir, model_dir_name)
         return cls.CURRENT_SAVE_PATHS
     
     # Reset current_save_path
@@ -100,8 +100,8 @@ class SavesManager:
     
     # Class that represents all the save paths for a specific model
     class SavePaths:
-        def __init__(self, model_dir_name: str):
-            saves_path = SavesManager.get_model_saves_path(model_dir_name)
+        def __init__(self, saves_dir: str, model_dir_name: str):
+            saves_path = SavesManager.get_model_saves_path(model_dir_name, saves_dir)
             
             # Create the save directory if it doesn't exist
             os.makedirs(saves_path, exist_ok=True)
@@ -120,10 +120,10 @@ class SavesManager:
             self.TRAINING = join_with_save_path(SaveFilename.TRAINING)
         
         @classmethod
-        def GenerateFromModelName(cls, model_name: str):
+        def GenerateFromModelName(cls, saves_dir: str, model_name: str):
             # Generate directory name for the model
             model_dir_name = SavesManager.generate_model_dir_name(model_name)
             
             # Generate and return corresponding save paths
-            return cls(model_dir_name)
+            return cls(saves_dir, model_dir_name)
             

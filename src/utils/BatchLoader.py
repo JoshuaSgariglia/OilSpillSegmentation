@@ -1,20 +1,11 @@
 import random
 from tensorflow.keras.utils import Sequence # type: ignore
 import numpy as np
-from config import INP_CHANNELS, INPUT_HEIGHT, INPUT_WIDTH, OUT_MASKS, TRAIN_BATCH_SIZE, VAL_BATCH_SIZE
+from config import INP_CHANNELS, INPUT_HEIGHT, INPUT_WIDTH, OUT_MASKS
 from utils.DatasetUtils import DatasetUtils
 
 
 class BatchLoader(Sequence):
-    @classmethod
-    def LoadTrainingBatches(cls, input_paths, mask_paths, augment=None, shuffle=True):
-        'Create training batches'
-        return cls(input_paths, mask_paths, TRAIN_BATCH_SIZE, augment=augment, shuffle=shuffle)
-    
-    @classmethod
-    def LoadValidationBatches(cls, input_paths, mask_paths, augment=None, shuffle=True):
-        'Create validation batches'
-        return cls(input_paths, mask_paths, VAL_BATCH_SIZE, augment=augment, shuffle=shuffle)
     
     def __init__(self, input_paths, mask_paths, batch_size: int, augment=None, shuffle=True):
         self.input_paths = input_paths
