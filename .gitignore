@@ -64,5 +64,5 @@ py3*/
 *logs/
 *results/
 *outputs/
-*prediction_test/
+*module_test/
 *saves/

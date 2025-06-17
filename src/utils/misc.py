@@ -2,16 +2,10 @@ from __future__ import annotations
 from datetime import datetime
 import os
 import logging
-import cv2
 from tensorflow.keras.losses import Loss, BinaryCrossentropy # type: ignore
-import numpy as np
 import tensorflow as tf
 from config import DATETIME_FORMAT, DECAYING_FACTOR, DECAYING_FACTOR_VALUES, DROPOUT_RATE, EPOCHS, LOG_FILENAME, LR, MIN_LR, PATIENCE, PATIENCE_VALUES, TRAIN_BATCH_SIZE, TRAIN_BATCH_SIZE_VALUES, VAL_BATCH_SIZE, VAL_BATCH_SIZE_VALUES, Paths
 from numpy.typing import NDArray
-from numpy import float32
-
-
-
     
 
 # Losses

@@ -1,6 +1,4 @@
-from enum import Enum
 from logging import Logger
-import os
 import tensorflow as tf
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, ReduceLROnPlateau # type: ignore
 from sklearn.model_selection import train_test_split
