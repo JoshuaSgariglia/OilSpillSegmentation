@@ -6,7 +6,7 @@ import cv2
 from tensorflow.keras.losses import Loss, BinaryCrossentropy # type: ignore
 import numpy as np
 import tensorflow as tf
-from config import DATETIME_FORMAT, DECAYING_FACTOR, DECAYING_FACTOR_VALUES, DROPOUT_RATE, EPOCHS, LR, MIN_LR, PATIENCE, PATIENCE_VALUES, TRAIN_BATCH_SIZE, TRAIN_BATCH_SIZE_VALUES, VAL_BATCH_SIZE, VAL_BATCH_SIZE_VALUES
+from config import DATETIME_FORMAT, DECAYING_FACTOR, DECAYING_FACTOR_VALUES, DROPOUT_RATE, EPOCHS, LOG_FILENAME, LR, MIN_LR, PATIENCE, PATIENCE_VALUES, TRAIN_BATCH_SIZE, TRAIN_BATCH_SIZE_VALUES, VAL_BATCH_SIZE, VAL_BATCH_SIZE_VALUES, Paths
 from numpy.typing import NDArray
 from numpy import float32
 
@@ -59,7 +59,7 @@ class BCEDiceLoss(Loss):
     
     
 # Logger
-def setup_logger(log_file: str, level=logging.INFO):
+def setup_logger(level: int = logging.INFO):
     """Set up a logger that logs to both console and file."""
     
     # Create a logger
@@ -74,8 +74,14 @@ def setup_logger(log_file: str, level=logging.INFO):
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
     
+    # Create directory for logs if it doesn't exist
+    os.makedirs(Paths.LOGS, exist_ok=True)
+    
+    # Log file path
+    log_file_path = generate_logging_path()
+    
     # File handler
-    file_handler = logging.FileHandler(log_file)
+    file_handler = logging.FileHandler(log_file_path)
     file_handler.setFormatter(formatter)
     
     # Add handlers if not already added
@@ -83,7 +89,13 @@ def setup_logger(log_file: str, level=logging.INFO):
         logger.addHandler(console_handler)
         logger.addHandler(file_handler)
     
+    # First log
+    logger.info(f"Start of log - file saved at \"{log_file_path}\"")
+    
     return logger
+
+def generate_logging_path():
+    return os.path.join(Paths.LOGS, f"{LOG_FILENAME}_{current_datetime()}.txt")
 
 # GPU \ System
 def config_gpu():
@@ -139,16 +151,16 @@ class Parameters:
         
         return parameters_list
     
-    
+# Model classes
 
 # Evaluation model class
 class Evaluation:
     def __init__(self, 
         confusion_matrix: NDArray,
         accuracy: float,
-        precision: NDArray,
-        recall: NDArray,
-        f1_score: NDArray,
+        precision_values: NDArray,
+        recall_values: NDArray,
+        f1_score_values: NDArray,
          
     ):
         self.CONFUSION_MATRIX = confusion_matrix.tolist()

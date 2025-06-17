@@ -2,28 +2,22 @@ import os
 from config import DatasetRegistry, Paths
 from models.UNetL import UNetL
 from predict import EvaluationSession
-from train import TrainingSession
-from utils.misc import Parameters, config_gpu, current_datetime, setup_logger
+from train import TrainingAndEvaluationSession, TrainingSession
+from utils.misc import Parameters, config_gpu, setup_logger
 
 
 def main():
     # Prepare GPU
     config_gpu()
     
-    # Create directory for logs if it doesn't exist
-    os.makedirs(Paths.LOGS, exist_ok=True)
-    
-    # Instantiate objects needed for training
+    # Instantiate objects needed for training and evaluation
+    dataset = DatasetRegistry.PALSAR
     models = [UNetL()]
     params = [Parameters()]
-    logger = setup_logger(os.path.join(Paths.LOGS, f"log_{current_datetime()}.txt"))
+    logger = setup_logger()
     
-    # Initialize objects needed for evaluation
-    model_names = [model.name for model in models]
-    
-    training_session = TrainingSession(DatasetRegistry.PALSAR, models, params, logger)
-    
-    eval_session = EvaluationSession(training_session.test_img_paths, training_session.test_mask_paths, model_names, logger)
+    # Create session
+    TrainingAndEvaluationSession(dataset, models, params, logger).start_model_wise()
 
 if __name__ == "__main__":
     main()

@@ -28,6 +28,9 @@ PATIENCE_VALUES: tuple = (3, 4)
 # Datetime format
 DATETIME_FORMAT: str = "%Y-%m-%d_%H-%M-%S"
 
+# Logging
+LOG_FILENAME: str = "log"
+
 # Names of files created during training and validation
 class SaveFilename(Enum):
     EVALUATION = "evaluation.json"
@@ -38,9 +41,10 @@ class SaveFilename(Enum):
 
 # Main project paths
 class Paths:
-    SAVES = os.path.join(os.getcwd(), "saves")
-    LOGS = os.path.join(os.getcwd(), "logs")
     DATASETS = os.path.join(os.getcwd(), "sos-dataset/dataset")
+    LOGS = os.path.join(os.getcwd(), "logs")
+    PREDICTIONS = os.path.join(os.getcwd(), "prediction_test")
+    SAVES = os.path.join(os.getcwd(), "saves")
     
 # Interface for DatasetRegistry attributes
 @dataclass
