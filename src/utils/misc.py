@@ -39,7 +39,7 @@ class ParametersLoaderModel(Model):
     NAME: str
     
     @classmethod
-    def get_parameters_values(cls):
+    def get_parameters_values(cls) -> ParametersValues:
         raise NotImplementedError("Method not implemented")
     
     @property

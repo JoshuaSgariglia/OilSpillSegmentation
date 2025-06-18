@@ -8,7 +8,6 @@ from predict import EvaluationSession
 from utils.DatasetUtils import DatasetUtils
 from train import TrainingAndEvaluationSession
 from utils.misc import config_gpu, setup_logger
-from transunet import TransUNet
 
 # Functions that can be executed in main
 test_prediction = EvaluationSession.test_prediction
