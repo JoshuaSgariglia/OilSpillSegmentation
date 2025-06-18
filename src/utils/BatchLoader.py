@@ -7,12 +7,13 @@ from utils.DatasetUtils import DatasetUtils
 
 class BatchLoader(Sequence):
     
-    def __init__(self, input_paths, mask_paths, batch_size: int, augment=None, shuffle=True):
+    def __init__(self, input_paths, mask_paths, batch_size: int, input_channels: int = INP_CHANNELS, augment=None, shuffle=True):
         self.input_paths = input_paths
         self.mask_paths = mask_paths
         self.batch_size = batch_size
-        self.shuffle = shuffle
+        self.input_channels = input_channels
         self.augment_class = augment
+        self.shuffle = shuffle
 
         self.on_epoch_end()
 
@@ -31,7 +32,7 @@ class BatchLoader(Sequence):
             np.random.shuffle(self.indexes)
 
     def __data_generation(self, element_indexes):
-        X = np.empty((self.batch_size, INPUT_HEIGHT, INPUT_WIDTH, INP_CHANNELS), dtype=np.float32)
+        X = np.empty((self.batch_size, INPUT_HEIGHT, INPUT_WIDTH, self.input_channels), dtype=np.float32)
         Y = np.empty((self.batch_size, INPUT_HEIGHT, INPUT_WIDTH, OUT_MASKS), dtype=np.float32)
         
         for index, element_index in enumerate(element_indexes):
@@ -46,6 +47,9 @@ class BatchLoader(Sequence):
             if self.augment_class is not None:
                 augment = self.augment_class(seed=random.randint(0,100))
                 image, mask = augment(image, mask)
+                
+            # Convert image from 3-channels to 1-channel (needed for TransUNet)
+            image = image = np.repeat(image, 3, axis=2) if self.input_channels == 3 else image
 
             X[index, :, :, :] = image
             Y[index, :, :, :] = mask

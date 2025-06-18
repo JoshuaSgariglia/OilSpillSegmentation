@@ -30,6 +30,32 @@ class SavesManager:
     def generate_model_saves_path(cls, model_name: str, saves_dir: str) -> str:
         return os.path.join(cls.get_model_type_saves_path(model_name, saves_dir), cls.generate_model_dir_name(model_name))
     
+    @classmethod
+    def get_all_dir_names_by_model_name(cls, model_name: str, saves_dir: str) -> list[str]:
+        # Determine save path directory for all models of type "model_name"
+        model_type_path = SavesManager.get_model_type_saves_path(model_name, saves_dir)
+            
+        # List all single subdirectories of model saves
+        model_dir_names = os.listdir(model_type_path)
+        
+        return model_dir_names
+    
+    @classmethod
+    def get_all_saves_paths_by_model_name(cls, model_name: str, saves_dir: str) -> list[str]:
+        # Get path of dir for model saves
+        model_type_saves_path = SavesManager.get_model_type_saves_path(model_name, saves_dir)
+        
+        # List all single subdirectories of model saves
+        model_dir_names = os.listdir(model_type_saves_path)
+        
+        # Initialize empty list
+        all_saves_paths: list[str] = []
+        
+        for model_dir_name in model_dir_names:
+            all_saves_paths.append(os.path.join(model_type_saves_path, model_dir_name))
+            
+        return all_saves_paths
+    
     # Generate and set new save paths for a specific model
     @classmethod
     def set_generated_save_paths(cls, saves_dir: str, model_name: str) -> SavePaths:
@@ -66,8 +92,9 @@ class SavesManager:
             
     # Loading parameters from JSON file
     @classmethod
-    def load_parameters(cls) -> Parameters:
-        params_dict = cls.load_json(cls.CURRENT_SAVE_PATHS.PARAMETERS)
+    def load_parameters(cls, parameters_path: str | None = None) -> Parameters:
+        path = cls.CURRENT_SAVE_PATHS.PARAMETERS if parameters_path is None else os. path.join(parameters_path, SaveFilename.PARAMETERS.value)
+        params_dict = cls.load_json(path)
         return Parameters(**params_dict)
     
     # Save evaluation in JSON file

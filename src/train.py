@@ -12,15 +12,18 @@ from keras.models import Model
 from utils.misc import DiceLoss, BCEDiceLoss, Parameters, ParametersLoaderModel
 
 class TrainingSession:
-    def __init__(self, 
+    def __init__(self,  
+                 logger: Logger,
                  dataset: DatasetPaths, 
-                 models: list[ParametersLoaderModel], 
-                 parameters_list: list[Parameters] | None, 
-                 logger: Logger):
-        self.dataset = dataset
-        self.models = models
-        self.parameters_list = parameters_list
+                 model_classes: list[type[ParametersLoaderModel]], 
+                 parameters_list: list[Parameters] | None = None,
+                 filter_parameters: bool = True
+                 ):
         self.logger = logger
+        self.dataset = dataset
+        self.model_classes = model_classes
+        self.parameters_list = parameters_list
+        self.filter_parameters = filter_parameters
         
         logger.info("Training session initialization started")
         
@@ -35,29 +38,51 @@ class TrainingSession:
         logger.info("File paths loaded successfully")
     
     # Determine set of parameters to use
-    def get_parameters_list(self, model: ParametersLoaderModel):
+    def get_parameters_list(self, model_class: type[ParametersLoaderModel]):
             if self.parameters_list is None or self.parameters_list == [] or self.parameters_list[0] == ParametersRegistry.AUTOMATIC:
                 self.logger.info("Parameters list taken from model")
-                return model.get_parameters_values()
+                return model_class.get_parameters_values()
             
             self.logger.info("Parameters list taken from external source")
             return self.parameters_list
+        
+    # Filter the list of parameters
+    def filter_parameters_list(self, model_name: str, parameters_list: list[Parameters]):
+        # List all single subdirectories of model saves
+        model_saves_paths = SavesManager.get_all_saves_paths_by_model_name(model_name, self.dataset.MODEL_SAVES_PATH)
+        
+        # Load all saved parameters into a list
+        saved_parameters_list = [SavesManager.load_parameters(path) for path in model_saves_paths]
+        
+        # Filter parameters
+        filtered_parameters_list = [p for p in parameters_list if p not in saved_parameters_list]
+        
+        self.logger.info(f"Skipped {len(parameters_list) - len(filtered_parameters_list)} parameter sets")
+        
+        return filtered_parameters_list
     
     # Train all models
     def train_all(self):
         
         # Train all models with all parameters combinations
-        for model in self.models:
-            self.logger.info(f"Started training {model.name} models")
+        for model_class in self.model_classes:
+            self.logger.info(f"Started training {model_class.NAME} models")
             
             # Get parameters list
-            parameters_list = self.get_parameters_list(model)
+            parameters_list = self.get_parameters_list(model_class)
+            
+            # Filter parameters list
+            if self.filter_parameters:
+                parameters_list = self.filter_parameters_list(model_class.NAME, parameters_list)
             
             # Get parameters list length
             parameters_list_len = len(parameters_list)
             
             # Train the model on each parameters set
             for index, parameters in enumerate(parameters_list):
+                
+                # Instantiate model
+                model = model_class()
                 
                 # Train the model
                 self.train(model, parameters, index, parameters_list_len)
@@ -71,12 +96,12 @@ class TrainingSession:
         self.logger.info(f"Training session ended")
         
     # Train a model according to a set of parameters
-    def train(self, model: Model, parameters: Parameters, index: int = 0, parameters_list_len: int = 1):
+    def train(self, model: ParametersLoaderModel, parameters: Parameters, index: int = 0, parameters_list_len: int = 1):
         self.logger.info(f"Started training model {model.name} on parameter set {index + 1} out of {parameters_list_len}")
         
         # Create batch loaders (on-the-fly loading)
-        self.train_batch_loader = BatchLoader(self.train_img_paths, self.train_mask_paths, parameters.BATCH_SIZE)
-        self.val_batch_loader = BatchLoader(self.val_img_paths, self.val_mask_paths, parameters.BATCH_SIZE)
+        train_batch_loader = BatchLoader(self.train_img_paths, self.train_mask_paths, parameters.BATCH_SIZE, model.input_channels)
+        val_batch_loader = BatchLoader(self.val_img_paths, self.val_mask_paths, parameters.BATCH_SIZE, model.input_channels)
 
         self.logger.info("Batch loaders initialized successfully")
             
@@ -136,14 +161,14 @@ class TrainingSession:
         # Training
         with tf.device('/GPU:0'):
             model.fit(
-                x=self.train_batch_loader,
-                validation_data=self.val_batch_loader,
+                x=train_batch_loader,
+                validation_data=val_batch_loader,
                 epochs=parameters.EPOCHS,
                 callbacks=[lr_scheduler, checkpoint, csv_logger],
                 verbose=1
             )
 
-        self.logger.info(f"Completed training of model {model.name} on parameter set 1 out of {index + 1}")
+        self.logger.info(f"Completed training of model {model.name} on parameter set {index + 1} out of {parameters_list_len}")
         
         # Save parameters
         SavesManager.save_parameters(parameters)
@@ -151,20 +176,27 @@ class TrainingSession:
         self.logger.info(f"Training results, model and parameters have been saved under \"{model_save_paths.DIRECTORY_NAME}\"")
 
 class TrainingAndEvaluationSession:
-    def __init__(self, dataset: DatasetPaths, models: list[ParametersLoaderModel], parameters_list: list[Parameters], logger: Logger):
-        self.dataset = dataset
-        self.models = models
-        self.parameters_list = parameters_list
+    def __init__(self,  
+                 logger: Logger,
+                 dataset: DatasetPaths, 
+                 model_classes: list[type[ParametersLoaderModel]], 
+                 parameters_list: list[Parameters] | None = None,
+                 filter_parameters: bool = True
+                 ):
         self.logger = logger
+        self.dataset = dataset
+        self.model_classes = model_classes
+        self.parameters_list = parameters_list
+        self.filter_parameters = filter_parameters
     
     def start_session_wise(self):
         self.logger.info("Started session-wise training and evaluation session")
         
         # Create training session
-        training_session = TrainingSession(self.dataset, self.models, self.parameters_list, self.logger)
+        training_session = TrainingSession(self.logger, self.dataset, self.model_classes, self.parameters_list, self.filter_parameters)
         
         # Initialize objects needed for evaluation
-        model_names = [model.name for model in self.models]
+        model_names = [model_class.NAME for model_class in self.model_classes]
         image_paths = training_session.test_img_paths
         mask_paths = training_session.test_mask_paths
         
@@ -184,19 +216,27 @@ class TrainingAndEvaluationSession:
         self.logger.info("Started model-wise training and evaluation session")
         
         # Create sessions
-        training_session = TrainingSession(self.dataset, self.models, self.parameters_list, self.logger)
+        training_session = TrainingSession(self.logger, self.dataset, self.model_classes, self.parameters_list, self.filter_parameters)
             
         # Train all models with all parameters combinations
-        for model in self.models:
-            training_session.logger.info(f"Started training and evaluating {model.name} models")
+        for model_class in self.model_classes:
+            training_session.logger.info(f"Started training and evaluating {model_class.NAME} models")
             
             # Get parameters list
-            parameters_list = training_session.get_parameters_list(model)
+            parameters_list = training_session.get_parameters_list(model_class)
+            
+            # Filter parameters list
+            if self.filter_parameters:
+                parameters_list = training_session.filter_parameters_list(model_class.NAME, parameters_list)
             
             # Get parameters list length
             parameters_list_len = len(parameters_list)
             
             for index, parameters in enumerate(parameters_list):
+                
+                # Instantiate the model
+                model = model_class()
+        
                 self.logger.info(f"Started training and evaluating model {model.name} on parameter set {index + 1} out of {parameters_list_len}")
                 
                 # Train the model

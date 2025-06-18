@@ -1,11 +1,14 @@
 from keras.layers import Input, Conv2D, MaxPooling2D, Conv2DTranspose, concatenate
 from config import INP_CHANNELS, INPUT_HEIGHT, INPUT_WIDTH, ParametersRegistry
-from dataclass import ParametersValues
+from dataclass import Parameters
 from utils.misc import ParametersLoaderModel
 
 class UNet(ParametersLoaderModel):
-    def get_parameters_values(self) -> ParametersValues:
-        return self.generate_parameters_list(ParametersRegistry.UNET)
+    NAME = "UNet"
+    
+    @classmethod
+    def get_parameters_values(cls) -> list[Parameters]:
+        return cls.generate_parameters_list(ParametersRegistry.UNET)
     
     def __init__(self, input_height=INPUT_HEIGHT, input_width=INPUT_WIDTH, input_channels=INP_CHANNELS):
         inputs = Input((input_height, input_width, input_channels))
@@ -53,4 +56,4 @@ class UNet(ParametersLoaderModel):
 
         outputs = Conv2D(1, (1, 1), activation='sigmoid')(deconv1)
 
-        super().__init__(inputs=[inputs], outputs=[outputs], name='UNet')
+        super().__init__(inputs=[inputs], outputs=[outputs], name=self.NAME)

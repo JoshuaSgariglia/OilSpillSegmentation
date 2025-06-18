@@ -64,18 +64,18 @@ class ParametersRegistry:
         BATCH_SIZE_VALUES = (8, 16, 32),
         DECAYING_FACTOR_VALUES = (0.5, 0.4),
         PATIENCE_VALUES = (3, 4),
-        EPOCHS = 50,
-        LR = 1e-4,
-        MIN_LR = 1e-6
+        EPOCHS = 40,
+        LR = 5e-5,
+        MIN_LR = 1e-7
     )
     
     UNETPPL = ParametersValues(
         BATCH_SIZE_VALUES = (8, 16, 32),
         DECAYING_FACTOR_VALUES = (0.5, 0.4),
         PATIENCE_VALUES = (3, 4),
-        EPOCHS = 50,
-        LR = 1e-4,
-        MIN_LR = 1e-6
+        EPOCHS = 40,
+        LR = 5e-5,
+        MIN_LR = 5e-7
     )
     
     TUNET = ParametersValues(

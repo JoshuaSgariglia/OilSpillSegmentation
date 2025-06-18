@@ -29,11 +29,8 @@ class EvaluationSession:
                     
             self.logger.info(f"Start evaluating {model_name} models")
             
-            # Determine save path directory for all models of type "model_name"
-            model_type_path = SavesManager.get_model_type_saves_path(model_name)
-            
             # List all single subdirectories of model saves
-            model_dir_names = os.listdir(model_type_path)
+            model_dir_names = SavesManager.get_all_dir_names_by_model_name(model_name, self.saves_dir)
             
             for model_dir_name in model_dir_names:
                 
@@ -172,7 +169,7 @@ class EvaluationSession:
         mask_path = os.path.join(DatasetRegistry.PALSAR.TEST_LABELS_PATH, f'{image_number}.png') 
 
         # Load model
-        model = load_model(f"{os.getcwd()}/saves/palsar/UNetL/UNetL_2025-06-16_17-37-57_for_testing/model.hdf5")
+        model = load_model(f"{os.getcwd()}/module_test/prediction/UNetL_2025-06-16_17-37-57_for_testing/model.hdf5")
 
         EvaluationSession.predict_and_save_image(image_path, mask_path, model)
 

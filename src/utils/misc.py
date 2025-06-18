@@ -36,11 +36,19 @@ class BCEDiceLoss(Loss):
     
 # Custom Parameter Loader class for models
 class ParametersLoaderModel(Model):
-    def get_parameters_values():
+    NAME: str
+    
+    @classmethod
+    def get_parameters_values(cls):
         raise NotImplementedError("Method not implemented")
     
+    @property
+    def input_channels(self) -> int:
+        return self.input_shape[-1]  
+      
     # Generate a list of Parameters from a ParametersValues object
-    def generate_parameters_list(self, parameters_values: ParametersValues) -> list[Parameters]:
+    @staticmethod
+    def generate_parameters_list(parameters_values: ParametersValues) -> list[Parameters]:
         # Initialize empty Parameters list
         parameters_list: list[Parameters] = []
         
