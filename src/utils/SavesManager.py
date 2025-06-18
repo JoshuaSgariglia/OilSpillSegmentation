@@ -45,6 +45,9 @@ class SavesManager:
         # Get path of dir for model saves
         model_type_saves_path = SavesManager.get_model_type_saves_path(model_name, saves_dir)
         
+        # Create model directory if it does not exist
+        os.makedirs(model_type_saves_path, exist_ok=True)
+        
         # List all single subdirectories of model saves
         model_dir_names = os.listdir(model_type_saves_path)
         

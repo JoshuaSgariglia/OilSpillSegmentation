@@ -63,4 +63,4 @@ class UNetPPL(ParametersLoaderModel):
 
         outputs = Conv2D(1, (1, 1), activation='sigmoid')(deconv1)
 
-        super().__init__(self, inputs=[inputs], outputs=[outputs], name=self.NAME)
+        super().__init__(inputs=[inputs], outputs=[outputs], name=self.NAME)

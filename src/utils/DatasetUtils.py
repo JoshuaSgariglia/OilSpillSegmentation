@@ -88,7 +88,7 @@ class DatasetUtils:
                 os.makedirs(save_path, exist_ok=True)
                 Image.fromarray((image).astype(np.uint8)).save(os.path.join(save_path, image_filename))
                 
-        #denoise_images(dataset.TRAIN_IMAGES_PATH, dataset.TRAIN_IMAGES_DENOISED_PATH)
+        denoise_images(dataset.TRAIN_IMAGES_PATH, dataset.TRAIN_IMAGES_DENOISED_PATH)
         denoise_images(dataset.TEST_IMAGES_PATH, dataset.TEST_IMAGES_DENOISED_PATH)
 
     

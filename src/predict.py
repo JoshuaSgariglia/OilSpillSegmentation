@@ -61,7 +61,7 @@ class EvaluationSession:
         
     # Evaluate model
     @classmethod
-    def evaluate(cls, image_paths: str, mask_paths: str, model: Model, model_dir_name: str, logger: Logger):
+    def evaluate(cls, image_paths: str, mask_paths: str, model: Model, model_dir_name: str, logger: Logger, save: bool = True):
         
         logger.info(f"Start evaluating model {model_dir_name}")
         
@@ -108,7 +108,8 @@ class EvaluationSession:
         )
             
         # Save metrics dictionary in JSOn file
-        SavesManager.save_evaluation(evaluation)
+        if save:
+            SavesManager.save_evaluation(evaluation)
             
         logger.info(f"Model {model_dir_name} metrics saved successfully")
                     

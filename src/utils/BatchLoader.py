@@ -7,7 +7,7 @@ from utils.DatasetUtils import DatasetUtils
 
 class BatchLoader(Sequence):
     
-    def __init__(self, input_paths, mask_paths, batch_size: int, input_channels: int = INP_CHANNELS, augment=None, shuffle=True):
+    def __init__(self, input_paths, mask_paths, batch_size: int, input_channels: int = INP_CHANNELS, shuffle=True):
         self.input_paths = input_paths
         self.mask_paths = mask_paths
         self.batch_size = batch_size
@@ -42,11 +42,6 @@ class BatchLoader(Sequence):
             # Load image and mask from disk
             image = DatasetUtils.load_image(image_path)
             mask = DatasetUtils.load_mask(mask_path)
-
-            # Augment
-            if self.augment_class is not None:
-                augment = self.augment_class(seed=random.randint(0,100))
-                image, mask = augment(image, mask)
                 
             # Convert image from 3-channels to 1-channel (needed for TransUNet)
             image = image = np.repeat(image, 3, axis=2) if self.input_channels == 3 else image

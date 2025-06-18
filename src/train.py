@@ -87,7 +87,7 @@ class TrainingSession:
                 # Train the model
                 self.train(model, parameters, index, parameters_list_len)
             
-            self.logger.info(f"Completed training of {model.name} models")
+            self.logger.info(f"Completed training of {model.NAME} models")
         self.logger.info(f"Completed training of all models")
         
         # Reset save paths
@@ -96,8 +96,8 @@ class TrainingSession:
         self.logger.info(f"Training session ended")
         
     # Train a model according to a set of parameters
-    def train(self, model: ParametersLoaderModel, parameters: Parameters, index: int = 0, parameters_list_len: int = 1):
-        self.logger.info(f"Started training model {model.name} on parameter set {index + 1} out of {parameters_list_len}")
+    def train(self, model: ParametersLoaderModel, parameters: Parameters, index: int = 0, parameters_list_len: int = 1, save: bool = True):
+        self.logger.info(f"Started training model {model.NAME} on parameter set {index + 1} out of {parameters_list_len}")
         
         # Create batch loaders (on-the-fly loading)
         train_batch_loader = BatchLoader(self.train_img_paths, self.train_mask_paths, parameters.BATCH_SIZE, model.input_channels)
@@ -128,7 +128,7 @@ class TrainingSession:
         self.logger.info(f"Model compiled successfully")
 
         # Determine save paths and dir name for the model
-        model_save_paths: SavesManager.SavePaths = SavesManager.set_generated_save_paths(self.dataset.MODEL_SAVES_PATH, model.name)
+        model_save_paths: SavesManager.SavePaths = SavesManager.set_generated_save_paths(self.dataset.MODEL_SAVES_PATH, model.NAME)
 
         # Scheduler for decaying learning rate
         lr_scheduler = ReduceLROnPlateau(
@@ -164,14 +164,15 @@ class TrainingSession:
                 x=train_batch_loader,
                 validation_data=val_batch_loader,
                 epochs=parameters.EPOCHS,
-                callbacks=[lr_scheduler, checkpoint, csv_logger],
+                callbacks=[lr_scheduler, checkpoint, csv_logger] if save else [lr_scheduler],
                 verbose=1
             )
 
-        self.logger.info(f"Completed training of model {model.name} on parameter set {index + 1} out of {parameters_list_len}")
+        self.logger.info(f"Completed training of model {model.NAME} on parameter set {index + 1} out of {parameters_list_len}")
         
         # Save parameters
-        SavesManager.save_parameters(parameters)
+        if save:
+            SavesManager.save_parameters(parameters)
         
         self.logger.info(f"Training results, model and parameters have been saved under \"{model_save_paths.DIRECTORY_NAME}\"")
 
@@ -237,7 +238,7 @@ class TrainingAndEvaluationSession:
                 # Instantiate the model
                 model = model_class()
         
-                self.logger.info(f"Started training and evaluating model {model.name} on parameter set {index + 1} out of {parameters_list_len}")
+                self.logger.info(f"Started training and evaluating model {model.NAME} on parameter set {index + 1} out of {parameters_list_len}")
                 
                 # Train the model
                 training_time = timeit.timeit(lambda: training_session.train(model, parameters, index, parameters_list_len), number = 1)
@@ -261,9 +262,9 @@ class TrainingAndEvaluationSession:
                 # Save time metrics
                 SavesManager.save_time_metrics(time_dict)
                 
-                self.logger.info(f"Completed training and evaluation of model {model.name} on parameter set {index + 1} out of {parameters_list_len}")
+                self.logger.info(f"Completed training and evaluation of model {model.NAME} on parameter set {index + 1} out of {parameters_list_len}")
             
-            self.logger.info(f"Completed training and evaluation of {model.name} models")
+            self.logger.info(f"Completed training and evaluation of {model_class.NAME} models")
         self.logger.info(f"Completed training and evaluation of all models")
         
         # Reset save paths

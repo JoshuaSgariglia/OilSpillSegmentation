@@ -1,61 +1,83 @@
 from logging import Logger
 import os
-from codecarbon import EmissionTracker
-from dataclass import DatasetPaths
+from codecarbon import EmissionsTracker
+from dataclass import DatasetPaths, Parameters
 from predict import EvaluationSession
 from config import Paths, SaveFilename
-from utils import SavesManager
+from utils.SavesManager import SavesManager
 from train import TrainingSession
 from utils.misc import ParametersLoaderModel
 
 class CO2Tracker:
+    
+    # Track training and evaluation emissions
     @staticmethod
     def track_emissions(  
                 logger: Logger,
                 dataset: DatasetPaths, 
-                model_classes: list[type[ParametersLoaderModel]] ) : 
+                model_classes: list[type[ParametersLoaderModel]],
+                multiplier: int = 1
+                ): 
         
+        # Instantiate training session
         training_session = TrainingSession(logger, dataset, model_classes)
-        for  model_class in model_classes:
         
-            parameters=model_class.generate_parameters_list()[0]
-            model=model_class()
+        for model_class in model_classes:
+            # Get some parameters for the model and the model
+            parameters: Parameters = model_class.generate_parameters_list()[0]
+            model = model_class()
 
-
-            with EmissionTracker()as tracker:
-                
+            # Track emission for training
+            with EmissionsTracker() as tracker:
                 training_session.train(model,parameters)
            
-            dict_training= {
-                "emissions": tracker.final_emissions * 1000,  # Convert to grams
-                "epochs_emissions": (tracker.final_inference_emissions * 1000)/len(parameters.EPOCHS),  # Convert to grams per image
+            training_emissions = {
+                "model_emissions": "{:.2f}".format(tracker.final_emissions * 1000),  # Convert to grams
+                "epochs_emissions": ("{:.4f}".format(tracker.final_inference_emissions * 1000)/len(parameters.EPOCHS)),  # Convert to grams per image
                 "emissions_data": tracker.final_emissions_data,
                 }
-             
             
-            with EmissionTracker()as tracker:
+            if multiplier > 1:
+                training_emissions = training_emissions.update(
+                    {"total_emissions": training_emissions.get("model_emissions")*multiplier}
+                )
+            
+            # Track emission for evaluation
+            with EmissionsTracker()as tracker:
                 EvaluationSession.evaluate(
                     training_session.test_img_paths, 
                     training_session.test_mask_paths, 
                     model, 
                     SavesManager.CURRENT_SAVE_PATHS.DIRECTORY_NAME, 
-                    self.logger
+                    logger
                     )
-            dict_evaluation = {
                 
-                "emissions": tracker.final_emissions * 1000,  # Convert to grams
-                "inference_emissions": (tracker.final_inference_emissions * 1000)/len(training_session.test_img_paths),  # Convert to grams per image
+            evaluation_emissions = {
+                "model_emissions": "{:.2f}".format(tracker.final_emissions * 1000),  # Convert to grams
+                "inference_emissions": "{:.2f}".format((tracker.final_inference_emissions * 1000)/len(training_session.test_img_paths)),  # Convert to grams per image
                 "emissions_data": tracker.final_emissions_data,
                 }
+            
+            if multiplier > 1:
+                evaluation_emissions = evaluation_emissions.update(
+                    {"total_emissions": evaluation_emissions.get("model_emissions")*multiplier}
+                )
 
-            dict= {
+            # Prepare emissions data
+            dict = {
                 "dataset": dataset.DATASET_NAME,
                 "model": model_class.NAME,
                 "epochs": parameters.EPOCHS,
-                "training_emissions": dict_training,
-                "evaluation_emissions": dict_evaluation
+                "training": training_emissions,
+                "evaluation": evaluation_emissions
             }
-            SavesManager.save_json(os.path.join(Paths.EMISSIONS,SavesManager.generate_model_dir_name(model.name), SaveFilename.EMISSIONS.value), dict) 
+            
+            # Create save path if it does not exist
+            save_path = os.path.join(Paths.EMISSIONS, SavesManager.generate_model_dir_name(model.name))    
+            os.makedirs(save_path)
+            
+            # Save emissions data
+            SavesManager.save_json(os.path.join(save_path, SaveFilename.EMISSIONS.value), dict) 
 
 
      

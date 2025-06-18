@@ -1,5 +1,4 @@
 from __future__ import annotations
-from abc import ABC, abstractmethod
 from datetime import datetime
 import os
 import logging
@@ -41,6 +40,10 @@ class ParametersLoaderModel(Model):
     @classmethod
     def get_parameters_values(cls) -> ParametersValues:
         raise NotImplementedError("Method not implemented")
+
+    @classmethod
+    def show_model_summary(cls):
+        print(cls().summary())
     
     @property
     def input_channels(self) -> int:
