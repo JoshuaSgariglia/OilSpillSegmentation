@@ -5,6 +5,7 @@ from models.UNetPPL import UNetPPL
 from models.UNetPP import UNetPP
 from models.TransUNet import TransUNet
 from predict import EvaluationSession
+from utils.CO2Tracker import CO2Tracker
 from utils.DatasetUtils import DatasetUtils
 from train import TrainingAndEvaluationSession
 from utils.misc import config_gpu, setup_logger
@@ -13,6 +14,7 @@ from utils.misc import config_gpu, setup_logger
 test_prediction = EvaluationSession.test_prediction
 test_denoising = DatasetUtils.test_denoising
 denoise_dataset = DatasetUtils.denoise_dataset
+track_emissions = CO2Tracker.track_emissions
 
 # Training and evaluation session
 def train_eval_session():
@@ -25,6 +27,15 @@ def train_eval_session():
     # Create session
     for dataset in datasets:
         TrainingAndEvaluationSession(logger, dataset, models, params, True).start_model_wise()
+
+def track_emissions_session(): 
+    logger = setup_logger()
+    datasets = [DatasetRegistry.PALSAR, DatasetRegistry.SENTINEL]
+    models = [UNetL, UNet]
+    
+    # Create session
+    for dataset in datasets:
+        CO2Tracker.track_emissions(logger, dataset, models)
 
 
 def main():

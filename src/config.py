@@ -94,6 +94,7 @@ class SaveFilename(Enum):
     PARAMETERS = "parameters.json"
     TIME = "time.json"
     TRAINING = "training.csv"
+    EMISSIONS = "emissions.json"
 
 # Main project paths
 class Paths:
@@ -103,12 +104,14 @@ class Paths:
     PREDICTIONS = os.path.join(os.getcwd(), "module_test/prediction")
     SAVES = os.path.join(os.getcwd(), "saves")
     DENOISING = os.path.join(os.getcwd(), "module_test/denoising") 
+    EMISSIONS = os.path.join(os.getcwd(), "emissions")
 
 # Dataset registry for different datasets
 class DatasetRegistry:
 
     # Dataset predefined paths
-    PALSAR = DatasetPaths(
+    PALSAR = DatasetPaths( 
+        "Palasar",
         os.path.join(Paths.SAVES, "palsar"),
         os.path.join(Paths.DATASETS, "train/palsar/image"),
         os.path.join(Paths.DATASETS, "train/palsar/label"),
@@ -119,6 +122,7 @@ class DatasetRegistry:
     )
     
     SENTINEL = DatasetPaths(
+        "Sentinel",
         os.path.join(Paths.SAVES, "sentinel"),
         os.path.join(Paths.DATASETS, "train/sentinel/image"),
         os.path.join(Paths.DATASETS, "train/sentinel/label"),
