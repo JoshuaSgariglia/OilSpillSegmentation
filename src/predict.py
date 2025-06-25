@@ -1,6 +1,8 @@
 from logging import Logger
 import cv2
 import numpy as np
+from models import TransUNet
+from utils.Denoiser import Denoiser
 from utils.DatasetUtils import DatasetUtils
 from utils.SavesManager import SavesManager
 from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
@@ -61,7 +63,7 @@ class EvaluationSession:
         
     # Evaluate model
     @classmethod
-    def evaluate(cls, image_paths: str, mask_paths: str, model: Model, model_dir_name: str, logger: Logger, save: bool = True):
+    def evaluate(cls, image_paths: str, mask_paths: str, model: Model, model_dir_name: str, logger: Logger, save: bool = True, extra_filter: callable = Denoiser.gaussian_blur):
         
         logger.info(f"Start evaluating model {model_dir_name}")
         
@@ -72,7 +74,7 @@ class EvaluationSession:
         
         # Predict the image
         for image_path, mask_path in zip(image_paths, mask_paths):  
-            mask, predict = cls.predict_image(image_path, mask_path, model) 
+            mask, predict = cls.predict_image(image_path, mask_path, model, extra_filter) 
             
             # Append images in the tensors
             seg_list = np.hstack((seg_list, mask.flatten().astype('uint8')))
@@ -115,10 +117,13 @@ class EvaluationSession:
                     
     # Predict image
     @staticmethod
-    def predict_image(image_path: str, mask_path: str, model: Model):
+    def predict_image(image_path: str, mask_path: str, model: Model, extra_filter: callable = Denoiser.gaussian_blur):
         # Load image and its mask
-        image = DatasetUtils.load_image(image_path)
+        image = DatasetUtils.load_image(image_path, extra_filter)
         mask = DatasetUtils.load_mask(mask_path)
+        
+        # Convert image from 3-channels to 1-channel (needed for TransUNet)
+        image = image = np.repeat(image, 3, axis=2) if model.input_shape[-1] == 3 else image
         
         # Predict
         predict = model.predict(np.expand_dims(image, axis=0))

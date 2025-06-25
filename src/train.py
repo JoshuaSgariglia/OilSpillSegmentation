@@ -4,6 +4,7 @@ import tensorflow as tf
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, ReduceLROnPlateau # type: ignore
 from sklearn.model_selection import train_test_split
 from predict import EvaluationSession
+from utils.Denoiser import Denoiser
 from utils.SavesManager import SavesManager
 from utils.DatasetUtils import DatasetUtils
 from utils.BatchLoader import BatchLoader
@@ -17,18 +18,25 @@ class TrainingSession:
                  dataset: DatasetPaths, 
                  model_classes: list[type[ParametersLoaderModel]], 
                  parameters_list: list[Parameters] | None = None,
-                 filter_parameters: bool = True
+                 filter_parameters: bool = True,
+                 denoised_dataset: bool = True,
+                 extra_filter: callable = Denoiser.gaussian_blur
                  ):
         self.logger = logger
         self.dataset = dataset
         self.model_classes = model_classes
         self.parameters_list = parameters_list
         self.filter_parameters = filter_parameters
+        self.denoised_dataset = denoised_dataset
+        self.extra_filter = extra_filter
+        
         
         logger.info("Training session initialization started")
+        logger.info(f"Training on {'denoised' if denoised_dataset else 'undenoised'} dataset {self.dataset.DATASET_NAME}")
+        logger.info(f"{'Using extra filter' + extra_filter.__name__ if extra_filter is not None else 'No extra filter used'}")
         
         # Get file paths for images and masks
-        self.train_img_paths, self.train_mask_paths, test_img_paths, test_mask_paths = DatasetUtils.get_dataset_filepaths(dataset, True)
+        self.train_img_paths, self.train_mask_paths, test_img_paths, test_mask_paths = DatasetUtils.get_dataset_filepaths(dataset, denoised_dataset)
 
         # Split test set into validation and test sets (50/50 split, stratify if possible)
         self.val_img_paths, self.test_img_paths, self.val_mask_paths, self.test_mask_paths = train_test_split(
@@ -99,9 +107,11 @@ class TrainingSession:
     def train(self, model: ParametersLoaderModel, parameters: Parameters, index: int = 0, parameters_list_len: int = 1, save: bool = True):
         self.logger.info(f"Started training model {model.NAME} on parameter set {index + 1} out of {parameters_list_len}")
         
+        self.logger.info(f"{'Loading images using ' + self.extra_filter.__name__ if self.extra_filter is not None else 'Loading images with no extra filter'}")
+        
         # Create batch loaders (on-the-fly loading)
-        train_batch_loader = BatchLoader(self.train_img_paths, self.train_mask_paths, parameters.BATCH_SIZE, model.input_channels)
-        val_batch_loader = BatchLoader(self.val_img_paths, self.val_mask_paths, parameters.BATCH_SIZE, model.input_channels)
+        train_batch_loader = BatchLoader(self.train_img_paths, self.train_mask_paths, parameters.BATCH_SIZE, model.inp_channels, self.extra_filter)
+        val_batch_loader = BatchLoader(self.val_img_paths, self.val_mask_paths, parameters.BATCH_SIZE, model.inp_channels, self.extra_filter)
 
         self.logger.info("Batch loaders initialized successfully")
             
@@ -182,19 +192,23 @@ class TrainingAndEvaluationSession:
                  dataset: DatasetPaths, 
                  model_classes: list[type[ParametersLoaderModel]], 
                  parameters_list: list[Parameters] | None = None,
-                 filter_parameters: bool = True
+                 filter_parameters: bool = True,
+                 denoised_dataset: bool = True,
+                 extra_filter: callable = Denoiser.gaussian_blur
                  ):
         self.logger = logger
         self.dataset = dataset
         self.model_classes = model_classes
         self.parameters_list = parameters_list
         self.filter_parameters = filter_parameters
+        self.denoised_dataset = denoised_dataset
+        self.extra_filter = extra_filter
     
     def start_session_wise(self):
         self.logger.info("Started session-wise training and evaluation session")
         
         # Create training session
-        training_session = TrainingSession(self.logger, self.dataset, self.model_classes, self.parameters_list, self.filter_parameters)
+        training_session = TrainingSession(self.logger, self.dataset, self.model_classes, self.parameters_list, self.filter_parameters, self.denoised_dataset, self.extra_filter)
         
         # Initialize objects needed for evaluation
         model_names = [model_class.NAME for model_class in self.model_classes]
@@ -217,7 +231,7 @@ class TrainingAndEvaluationSession:
         self.logger.info("Started model-wise training and evaluation session")
         
         # Create sessions
-        training_session = TrainingSession(self.logger, self.dataset, self.model_classes, self.parameters_list, self.filter_parameters)
+        training_session = TrainingSession(self.logger, self.dataset, self.model_classes, self.parameters_list, self.filter_parameters, self.denoised_dataset, self.extra_filter)
             
         # Train all models with all parameters combinations
         for model_class in self.model_classes:
@@ -249,7 +263,9 @@ class TrainingAndEvaluationSession:
                     training_session.test_mask_paths, 
                     model, 
                     SavesManager.CURRENT_SAVE_PATHS.DIRECTORY_NAME, 
-                    self.logger
+                    self.logger,
+                    True,
+                    self.extra_filter
                 ), number = 1)
 
                 time_dict = {

@@ -23,7 +23,7 @@ class ParametersValues:
 # DatasetPaths model class
 @dataclass
 class DatasetPaths:
-    DATASET_NAME:str
+    DATASET_NAME: str
     MODEL_SAVES_PATH: str
     TRAIN_IMAGES_PATH: str
     TRAIN_LABELS_PATH: str

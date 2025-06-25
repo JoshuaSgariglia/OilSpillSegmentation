@@ -15,35 +15,37 @@ class CO2Tracker:
     def track_emissions(  
                 logger: Logger,
                 dataset: DatasetPaths, 
-                model_classes: list[type[ParametersLoaderModel]],
-                multiplier: int = 1
+                model_classes: list[type[ParametersLoaderModel]]
                 ): 
         
         # Instantiate training session
         training_session = TrainingSession(logger, dataset, model_classes)
         
         for model_class in model_classes:
-            # Get some parameters for the model and the model
-            parameters: Parameters = model_class.generate_parameters_list()[0]
+            # Get some parameters for the model and themultiplier
+            parameters_list = model_class.get_parameters_values()
+            parameters: Parameters = parameters_list[0]
+            multiplier = len(parameters_list)
+            
+            # Instantiate the model
             model = model_class()
+            
+            # Define tracker
+            tracker: EmissionsTracker
 
             # Track emission for training
             with EmissionsTracker() as tracker:
-                training_session.train(model,parameters)
+                training_session.train(model, parameters)
            
+            model_emission_value = tracker.final_emissions * 1000
             training_emissions = {
-                "model_emissions": "{:.2f}".format(tracker.final_emissions * 1000),  # Convert to grams
-                "epochs_emissions": ("{:.4f}".format(tracker.final_inference_emissions * 1000)/len(parameters.EPOCHS)),  # Convert to grams per image
-                "emissions_data": tracker.final_emissions_data,
+                "model_emissions": "{:.2f}".format(model_emission_value),  # Convert to grams
+                "epoch_emissions": "{:.2f}".format(model_emission_value / parameters.EPOCHS),  # Convert to grams per image
+                "total_emissions": "{:.2f}".format(model_emission_value * multiplier)
                 }
             
-            if multiplier > 1:
-                training_emissions = training_emissions.update(
-                    {"total_emissions": training_emissions.get("model_emissions")*multiplier}
-                )
-            
             # Track emission for evaluation
-            with EmissionsTracker()as tracker:
+            with EmissionsTracker() as tracker:
                 EvaluationSession.evaluate(
                     training_session.test_img_paths, 
                     training_session.test_mask_paths, 
@@ -52,19 +54,15 @@ class CO2Tracker:
                     logger
                     )
                 
+            model_emission_value = tracker.final_emissions * 1000
             evaluation_emissions = {
-                "model_emissions": "{:.2f}".format(tracker.final_emissions * 1000),  # Convert to grams
-                "inference_emissions": "{:.2f}".format((tracker.final_inference_emissions * 1000)/len(training_session.test_img_paths)),  # Convert to grams per image
-                "emissions_data": tracker.final_emissions_data,
+                "model_emissions": "{:.2f}".format(model_emission_value),  # Convert to grams
+                "inference_emissions": "{:.2f}".format(model_emission_value / len(training_session.test_img_paths)),  # Convert to grams per image
+                "total_emissions": "{:.2f}".format(model_emission_value * multiplier)
                 }
-            
-            if multiplier > 1:
-                evaluation_emissions = evaluation_emissions.update(
-                    {"total_emissions": evaluation_emissions.get("model_emissions")*multiplier}
-                )
 
             # Prepare emissions data
-            dict = {
+            emissions = {
                 "dataset": dataset.DATASET_NAME,
                 "model": model_class.NAME,
                 "epochs": parameters.EPOCHS,
@@ -77,7 +75,7 @@ class CO2Tracker:
             os.makedirs(save_path)
             
             # Save emissions data
-            SavesManager.save_json(os.path.join(save_path, SaveFilename.EMISSIONS.value), dict) 
+            SavesManager.save_json(os.path.join(save_path, SaveFilename.EMISSIONS.value), emissions) 
 
 
      

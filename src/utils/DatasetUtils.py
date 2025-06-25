@@ -34,24 +34,25 @@ class DatasetUtils:
 
     # Loading and preprocessing images or masks
     @staticmethod
-    def load_data(filepath: str, preprocessing: callable):
+    def load_data(filepath: str, preprocessing: callable, extra_filter: callable = None):
         image = cv2.imread(filepath, cv2.IMREAD_UNCHANGED)
         image = image[:, :, 0]
         image = cv2.resize(image, (INPUT_WIDTH, INPUT_HEIGHT))
-        image = preprocessing(image) 
+        image = preprocessing(image, extra_filter)
         image = np.expand_dims(image, axis=-1)  # (H, W, 1)
 
         return image
 
     # Preprocessing logic for image
     @staticmethod
-    def preprocess_image(image: NDArray[float32]) -> NDArray[float32]:
+    def preprocess_image(image: NDArray[float32], extra_filter: callable = None) -> NDArray[float32]:
         # IoU UNetL without filter: 0.792  
         # fastNlMeans: 0.791
         #image = Denoiser.median_blur(image) # 0.790 : 0.792 with fnlm
         #image = Denoiser.box_filter(image) # 0.792 : 0.793 with fnlm
-        image = Denoiser.gaussian_blur(image) # 0.793 ; 0.794 with fnlm
+        #image = Denoiser.gaussian_blur(image) # 0.793 ; 0.794 with fnlm
         #image = Denoiser.bilateral_filter(image) # 0.786
+        image = extra_filter(image) if extra_filter is not None else image
 
         #image = image.astype(np.float32) / 255.0
         image = (image - np.mean(image))/np.std(image)
@@ -60,15 +61,15 @@ class DatasetUtils:
 
     # Preprocessing logic for mask
     @staticmethod
-    def preprocess_mask(mask: NDArray[float32]) -> NDArray[float32]:
+    def preprocess_mask(mask: NDArray[float32], extra_filter: callable = None) -> NDArray[float32]:
         mask = mask.astype(np.float32) / 255.0
         mask = (mask >= 0.5).astype(np.float32)  # Binarize
         return mask
 
     # Loading and proprocessing image file
     @classmethod
-    def load_image(cls, filepath: str) -> NDArray[float32]:
-        return cls.load_data(filepath, cls.preprocess_image)
+    def load_image(cls, filepath: str, extra_filter: callable = None) -> NDArray[float32]:
+        return cls.load_data(filepath, cls.preprocess_image, extra_filter)
 
     # Loading and preprocessing image file
     @classmethod

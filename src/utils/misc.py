@@ -46,7 +46,7 @@ class ParametersLoaderModel(Model):
         print(cls().summary())
     
     @property
-    def input_channels(self) -> int:
+    def inp_channels(self) -> int:
         return self.input_shape[-1]  
       
     # Generate a list of Parameters from a ParametersValues object

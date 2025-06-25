@@ -61,7 +61,7 @@ class ParametersRegistry:
     )
     
     UNETPP = ParametersValues(
-        BATCH_SIZE_VALUES = (8, 16, 32),
+        BATCH_SIZE_VALUES = (8, 16),
         DECAYING_FACTOR_VALUES = (0.5, 0.4),
         PATIENCE_VALUES = (3, 2),
         EPOCHS = 40,
@@ -70,7 +70,7 @@ class ParametersRegistry:
     )
     
     UNETPPL = ParametersValues(
-        BATCH_SIZE_VALUES = (8, 16, 32),
+        BATCH_SIZE_VALUES = (8, 16),
         DECAYING_FACTOR_VALUES = (0.5, 0.4),
         PATIENCE_VALUES = (3, 2),
         EPOCHS = 40,
@@ -79,12 +79,21 @@ class ParametersRegistry:
     )
     
     TRANSUNET = ParametersValues(
-        BATCH_SIZE_VALUES = (8, 16, 32),
-        DECAYING_FACTOR_VALUES = (0.5, 0.4),
+        BATCH_SIZE_VALUES = (8, 12),
+        DECAYING_FACTOR_VALUES = (0.5, 0.3),
         PATIENCE_VALUES = (3, 2),
         EPOCHS = 40,
         LR = 1e-4,
-        MIN_LR = 1e-6
+        MIN_LR = 5e-7
+    )
+    
+    LIGHTMUNET = ParametersValues(
+        BATCH_SIZE_VALUES = (8, 12),
+        DECAYING_FACTOR_VALUES = (0.5, 0.3),
+        PATIENCE_VALUES = (3, 2),
+        EPOCHS = 40,
+        LR = 1e-4,
+        MIN_LR = 5e-7
     )
 
 # Names of files created during training and validation
@@ -111,7 +120,7 @@ class DatasetRegistry:
 
     # Dataset predefined paths
     PALSAR = DatasetPaths( 
-        "Palasar",
+        "Palsar",
         os.path.join(Paths.SAVES, "palsar"),
         os.path.join(Paths.DATASETS, "train/palsar/image"),
         os.path.join(Paths.DATASETS, "train/palsar/label"),

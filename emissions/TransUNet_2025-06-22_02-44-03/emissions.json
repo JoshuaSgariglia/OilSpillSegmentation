@@ -1,0 +1,1 @@
+{"dataset": "Sentinel", "model": "TransUNet", "epochs": 40, "training": {"model_emissions": "68.52", "epoch_emissions": "1.71", "total_emissions": "548.18"}, "evaluation": {"model_emissions": "0.30", "inference_emissions": "0.00", "total_emissions": "2.40"}}
