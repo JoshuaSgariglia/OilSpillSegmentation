@@ -145,6 +145,7 @@ class SavesManager:
             self.DIRECTORY = saves_path
             self.EVALUATION = join_with_save_path(SaveFilename.EVALUATION)
             self.MODEL = join_with_save_path(SaveFilename.MODEL)
+            self.MODEL_TF = join_with_save_path(SaveFilename.MODEL_TF)
             self.PARAMETERS = join_with_save_path(SaveFilename.PARAMETERS)
             self.TIME = join_with_save_path(SaveFilename.TIME)
             self.TRAINING = join_with_save_path(SaveFilename.TRAINING)

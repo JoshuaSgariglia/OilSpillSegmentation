@@ -33,7 +33,7 @@ class TrainingSession:
         
         logger.info("Training session initialization started")
         logger.info(f"Training on {'denoised' if denoised_dataset else 'undenoised'} dataset {self.dataset.DATASET_NAME}")
-        logger.info(f"{'Using extra filter' + extra_filter.__name__ if extra_filter is not None else 'No extra filter used'}")
+        logger.info(f"{'Using extra filter ' + extra_filter.__name__ if extra_filter is not None else 'No extra filter used'}")
         
         # Get file paths for images and masks
         self.train_img_paths, self.train_mask_paths, test_img_paths, test_mask_paths = DatasetUtils.get_dataset_filepaths(dataset, denoised_dataset)
@@ -109,6 +109,11 @@ class TrainingSession:
         
         self.logger.info(f"{'Loading images using ' + self.extra_filter.__name__ if self.extra_filter is not None else 'Loading images with no extra filter'}")
         
+        # Building model
+        if model.NEEDS_BUILDING:
+            model.build(model.build_input_shape)
+            self.logger.info("Model built successfully")
+        
         # Create batch loaders (on-the-fly loading)
         train_batch_loader = BatchLoader(self.train_img_paths, self.train_mask_paths, parameters.BATCH_SIZE, model.inp_channels, self.extra_filter)
         val_batch_loader = BatchLoader(self.val_img_paths, self.val_mask_paths, parameters.BATCH_SIZE, model.inp_channels, self.extra_filter)
@@ -151,11 +156,12 @@ class TrainingSession:
 
         # Create callbacks for model checkpointing and logging
         checkpoint = ModelCheckpoint(
-            filepath=model_save_paths.MODEL,
+            filepath=model_save_paths.MODEL_TF if model.NEEDS_BUILDING else model_save_paths.MODEL,
             verbose=1,
             monitor='val_loss',
             mode='min',
             save_best_only=True,
+            # Save Model if it does not need building, otherwise save only weights
             save_weights_only=False
             )
 

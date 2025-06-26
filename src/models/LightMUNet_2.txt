@@ -5,7 +5,7 @@ from config import INP_CHANNELS, INPUT_HEIGHT, INPUT_WIDTH, OUT_MASKS, Parameter
 from dataclass import Parameters
 from utils.misc import ParametersLoaderModel # type: ignore
 
-def Interpolation(filters, name):
+def Interpolation(filters):
     """
     Upscales H and W by 2x using bilinear interpolation,
     and reduces the channel dimension by 4 using a 1x1 convolution.
@@ -17,8 +17,6 @@ def Interpolation(filters, name):
     Returns:
         Output tensor of shape (B, 2H, 2W, filters)
     """
-    if name is None:
-        name = f"interpolation_{filters}"
 
     # Upsample spatial dimensions (bilinear)
     upsampling = layers.UpSampling2D(size=2, interpolation='bilinear')
@@ -31,80 +29,65 @@ def Interpolation(filters, name):
         padding='same',
     )
 
-    return Sequential([upsampling, convolution], name=name)
+    return Sequential([upsampling, convolution])
 
-def DepthwiseSeparableConv2D(out_channels, name, kernel_size=3, stride=1, activation="relu", padding="same", use_bias=False):
+def DepthwiseSeparableConv2D(out_channels, kernel_size=3, stride=1, activation="relu", padding="same", use_bias=False):
     """
     Returns a depthwise separable convolution block: DepthwiseConv2D + Pointwise Conv2D.
     """
-    if name is None:
-        name = f"depth_sep_conv_{out_channels}"
-    
     depthwise_conv = layers.DepthwiseConv2D(kernel_size=kernel_size, strides=stride, padding=padding, use_bias=use_bias)
     pointwise_conv = layers.Conv2D(out_channels, kernel_size=1, strides=1, activation=activation, padding=padding, use_bias=use_bias)
-    return Sequential([depthwise_conv, pointwise_conv], name=name)
+    return Sequential([depthwise_conv, pointwise_conv])
 
 # --- SSM Block (Diagonal, Efficient) ---
 class SSMBlock(layers.Layer):
     """
-    Implements the classic Mamba SSM block:
-    - Input projection to value and gate
-    - SSM kernel generation (depthwise Conv1D, causal)
-    - Gating and output projection
+    Implements a diagonal State Space Model (SSM) block with a scan along the width dimension.
     """
     def __init__(self, channels, ssm_state_dim=16):
         super().__init__()
         self.channels = channels
         self.ssm_state_dim = ssm_state_dim
+        # Diagonal SSM parameters for each channel
+        self.A = self.add_weight("A", shape=(channels, ssm_state_dim), initializer="glorot_uniform", trainable=True)
+        self.B = self.add_weight("B", shape=(channels, ssm_state_dim), initializer="glorot_uniform", trainable=True)
+        self.C = self.add_weight("C", shape=(channels, ssm_state_dim), initializer="glorot_uniform", trainable=True)
+        self.D = self.add_weight("D", shape=(channels,), initializer="zeros", trainable=True)
 
-        # Input projection: for value and gate
-        self.input_proj = layers.Dense(2 * channels, use_bias=True)
-        # SSM kernel generator: depthwise Conv1D (causal)
-        self.ssm_kernel_conv = layers.Conv1D(
-            filters=channels,
-            kernel_size=ssm_state_dim,
-            padding="causal",
-            groups=channels,
-            use_bias=True
-        )
-        # Output projection
-        self.output_proj = layers.Dense(channels, use_bias=True)
-        self.norm = layers.LayerNormalization(axis=-1)
-
-    def call(self, inputs):
+    def call(self, inputs):   
         """
-        inputs: Tensor of shape [batch_size, height, width, channels]
-        Returns: Tensor of shape [batch_size, height, width, channels]
+        inputs: Tensor of shape [batch_size, height, width, num_channels]
+        Returns: Tensor of shape [batch_size, height, width, num_channels]
         """
-        # LayerNorm first (as in Mamba)
-        x = self.norm(inputs)
+        # inputs: [B, H, W, C]
+        B, H, W, C = tf.shape(inputs)[0], tf.shape(inputs)[1], tf.shape(inputs)[2], inputs.shape[-1]
+        # Flatten spatial dims for scan
+        u = tf.reshape(inputs, [B, H, W, C])
+        # We'll scan along width (axis=2)
+        def scan_fn(prev_tuple, u_t):
+            """
+            prev_tuple: (prev_state, prev_output)
+                prev_state: [batch_size, height, num_channels, ssm_state_dim]
+                prev_output: [batch_size, height, num_channels] (unused)
+            current_input: [batch_size, height, num_channels]
+            """
+            prev_state, _ = prev_tuple
+            # prev_state: [B, H, C, ssm_state_dim]
+            # u_t: [B, H, C]
+            x = prev_state * tf.reshape(self.A, [1, 1, C, self.ssm_state_dim]) + \
+                tf.expand_dims(u_t, -1) * tf.reshape(self.B, [1, 1, C, self.ssm_state_dim])
+            y = x * tf.reshape(self.C, [1, 1, C, self.ssm_state_dim]) + \
+                tf.expand_dims(u_t, -1) * tf.reshape(self.D, [1, 1, C, 1])
+            y_out = tf.reduce_sum(y, axis=-1)  # [B, H, C]
+            return x, y_out
 
-        # Project to value and gate
-        proj = self.input_proj(x)  # [B, H, W, 2C]
-        value, gate = tf.split(proj, 2, axis=-1)  # Each [B, H, W, C]
-        gate = tf.sigmoid(gate)
-
-        # Reshape for Conv1D: merge batch and height, move width to axis 1
-        batch_size = tf.shape(inputs)[0]
-        height = tf.shape(inputs)[1]
-        width = tf.shape(inputs)[2]
-        channels = tf.shape(inputs)[3]
-
-        value_reshaped = tf.reshape(value, [batch_size * height, width, channels])  # [B*H, W, C]
-
-        # SSM kernel: depthwise Conv1D (causal)
-        ssm_out = self.ssm_kernel_conv(value_reshaped)  # [B*H, W, C]
-
-        # Restore original shape
-        ssm_out = tf.reshape(ssm_out, [batch_size, height, width, channels])
-
-        # Gating
-        gated = gate * ssm_out
-
-        # Output projection
-        out = self.output_proj(gated)
-
-        return out
+        # Transpose to [W, B, H, C]
+        u_t = tf.transpose(u, [2, 0, 1, 3])
+        init_state = tf.zeros([B, H, C, self.ssm_state_dim], dtype=u.dtype)
+        scan_result = tf.scan(scan_fn, u_t, initializer=(init_state, tf.zeros([B, H, C], dtype=u.dtype)))
+        y = scan_result[1]  # [W, B, H, C]
+        y = tf.transpose(y, [1, 2, 0, 3])  # [B, H, W, C]
+        return y
 
 # --- VSS Module ---
 class VSSModule(layers.Layer):
@@ -118,12 +101,7 @@ class VSSModule(layers.Layer):
         self.ssm_state_dim = ssm_state_dim
 
         self.linear1 = layers.Dense(expand_ratio * num_channels)
-        self.dwconv = DepthwiseSeparableConv2D(
-            expand_ratio * num_channels, 
-            kernel_size=dw_kernel, 
-            padding='same',
-            name=f"depth_sep_conv_{str(num_channels)}"
-            )
+        self.dwconv = layers.DepthwiseConv2D(kernel_size=dw_kernel, padding='same')
         self.silu1 = layers.Activation('swish')
         self.linear2 = layers.Dense(expand_ratio * num_channels)
         self.silu2 = layers.Activation('swish')
@@ -159,7 +137,7 @@ class RVMLayer(layers.Layer):
         super().__init__()
         self.norm1 = layers.LayerNormalization(axis=-1)
         self.vss = VSSModule(num_channels, ssm_state_dim, expand_ratio, dw_kernel)
-        self.scale = self.add_weight(shape=(1,), name=f"weight_{str(num_channels)}", initializer="ones", trainable=True)
+        self.scale = self.add_weight(shape=(1,), initializer="ones", trainable=True)
         self.norm2 = layers.LayerNormalization(axis=-1)
         self.proj = layers.Dense(num_channels if keep_depth else num_channels * 2)
 
@@ -182,20 +160,17 @@ class EncoderBlock(layers.Layer):
     """
     def __init__(self, num_channels, num_rvm_layers=2, ssm_state_dim=16, expand_ratio=2, dw_kernel=3):
         super().__init__()
-        num_channels_list: list[int] = [num_channels, num_channels * 2]
-        
-        for i in range(num_rvm_layers):
-            setattr(self, f"rvm_block_{i}", RVMLayer(
-                num_channels_list[i], ssm_state_dim, expand_ratio, dw_kernel))
-        
-        self._num_rvm_layers = num_rvm_layers  # Store as an int, which is safe!
+        self.rvm_layers = []
+        for _ in range(num_rvm_layers):
+            rvm_layer = RVMLayer(num_channels, ssm_state_dim, expand_ratio, dw_kernel)
+            self.rvm_layers.append(rvm_layer)
+            num_channels *= 2
             
         self.pool = layers.MaxPooling2D(pool_size=2)
 
     def call(self, inputs):
         x = inputs
-        for i in range(self._num_rvm_layers):
-            rvm = getattr(self, f"rvm_block_{i}")
+        for rvm in self.rvm_layers:
             x = rvm(x)
         x = self.pool(x)
         return x
@@ -207,15 +182,10 @@ class DecoderBlock(layers.Layer):
     """
     def __init__(self, num_channels, next_num_channels, dw_kernel=3):
         super().__init__()
-        self.interpolation = Interpolation(next_num_channels, f"interpolation_{str(next_num_channels)}")
+        self.interpolation = Interpolation(next_num_channels)
         self.relu = layers.Activation('relu')
-        self.dwconv = DepthwiseSeparableConv2D(
-            num_channels, 
-            kernel_size=dw_kernel, 
-            padding='same',
-            name=f"depth_sep_conv_{str(num_channels)}"
-            )
-        self.scale = self.add_weight(shape=(1,), name=f"weight_{str(num_channels)}", initializer="ones", trainable=True)
+        self.dwconv = DepthwiseSeparableConv2D(num_channels, kernel_size=dw_kernel, padding='same')
+        self.scale = self.add_weight(shape=(1,), initializer="ones", trainable=True)
 
     def call(self, inputs, skip_connection):
         # 1. Add skip connection
@@ -267,55 +237,42 @@ class LightMUNet(ParametersLoaderModel):
     ):
         super().__init__()
         self.build_input_shape = (None, input_shape[0], input_shape[1], input_shape[2])
-        self.num_encoders = num_encoders
-        self.num_decoders = num_decoders
         self.input_layer = layers.InputLayer(input_shape=input_shape)
-        self.dwconv_in = DepthwiseSeparableConv2D(
-            initial_filters, 
-            kernel_size=initial_filters, 
-            padding="same",
-            name="depth_sep_conv_input"
-            )
-
-        # Filters list
-        filters = initial_filters
-        
-        filters_list: list[int] = [initial_filters]
-        for i in range(num_encoders):
-            filters *= 2 ** rvm_layers_per_block
-            filters_list.append(filters)
+        self.dwconv_in = DepthwiseSeparableConv2D(initial_filters, kernel_size=initial_filters, padding="same")
 
         # Encoder path
+        self.encoder_blocks = []
+        filters = initial_filters
         for i in range(num_encoders):
-            setattr(self, f"encoder_block_{i}", EncoderBlock(
-                num_channels=filters_list[i],
-                num_rvm_layers=rvm_layers_per_block,
-                ssm_state_dim=ssm_state_dim,
-                expand_ratio=expand_ratio,
-                dw_kernel=dw_kernel,
-                ))
+            self.encoder_blocks.append(
+                EncoderBlock(
+                    num_channels=filters,
+                    num_rvm_layers=rvm_layers_per_block,
+                    ssm_state_dim=ssm_state_dim,
+                    expand_ratio=expand_ratio,
+                    dw_kernel=dw_kernel,
+                )
+            )
+            filters *= 2 ** rvm_layers_per_block
 
         # Bottleneck
         self.bottleneck = RVMLayer(filters, ssm_state_dim, expand_ratio, dw_kernel, keep_depth=True)
-        
-        filters_list = list(reversed(filters_list))
 
         # Decoder path
+        self.decoder_blocks = []
         for i in range(num_decoders):
-            setattr(self, f"decoder_block_{i}", DecoderBlock(
-                num_channels=filters_list[i],
-                next_num_channels=filters_list[i+1],
-                dw_kernel=dw_kernel,
-                ))
-            
-        # Final convolution
-        self.dwconv_out = DepthwiseSeparableConv2D(
-            out_classes, 
-            kernel_size=dw_kernel, 
-            activation="sigmoid", 
-            padding='same',
-            name=f"depth_sep_conv_output"
+            next_filters = filters // (2 ** rvm_layers_per_block)
+            self.decoder_blocks.append(
+                DecoderBlock(
+                    num_channels=filters,
+                    next_num_channels=next_filters,
+                    dw_kernel=dw_kernel,
+                )
             )
+            filters = next_filters
+            
+            
+        self.dwconv_out = DepthwiseSeparableConv2D(out_classes, kernel_size=dw_kernel, activation="sigmoid", padding='same')
 
     def call(self, inputs):
         """
@@ -329,8 +286,7 @@ class LightMUNet(ParametersLoaderModel):
         skip_connections = []
         
         # Call encoders
-        for i in range(self.num_encoders):
-            encoder = getattr(self, f"encoder_block_{i}")
+        for encoder in self.encoder_blocks:
             x = encoder(x)
             skip_connections.append(x)
             
@@ -338,9 +294,8 @@ class LightMUNet(ParametersLoaderModel):
         x = self.bottleneck(x)
         
         # Call decoders
-        for i in range(self.num_decoders):
-            decoder = getattr(self, f"decoder_block_{i}")
-            x = decoder(x, skip_connections[-(i+1)])
+        for decoder, skip in zip(self.decoder_blocks, reversed(skip_connections)):  
+            x = decoder(x, skip)
             
         # Final convolution
         x = self.dwconv_out(x)

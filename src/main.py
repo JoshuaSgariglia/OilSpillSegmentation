@@ -27,9 +27,13 @@ denoise_dataset = DatasetUtils.denoise_dataset
 def train_eval_session(logger: Logger):
     # Instantiate objects needed for training and evaluation
     datasets = [DatasetRegistry.PALSAR]
-    models = [UNetL]
-    params = [ParametersRegistry.DEFAULT_PARAMETERS]
+    models = [LightMUNet]
+    params = [ParametersRegistry.AUTOMATIC]
     
+    for dataset in datasets:
+        TrainingAndEvaluationSession(logger, dataset, models, params, False, True, Denoiser.gaussian_blur).start_model_wise()
+    
+    '''
     # Create session
     for dataset in datasets:
         TrainingAndEvaluationSession(logger, dataset, models, params, False, False, Denoiser.gaussian_blur).start_model_wise()
@@ -43,6 +47,7 @@ def train_eval_session(logger: Logger):
         TrainingAndEvaluationSession(logger, dataset, models, params, False, True, Denoiser.box_filter).start_model_wise()
         TrainingAndEvaluationSession(logger, dataset, models, params, False, True, Denoiser.bilateral_filter).start_model_wise()
         TrainingAndEvaluationSession(logger, dataset, models, params, False, True, None).start_model_wise()
+    '''
 
 # Track training and evaluation emissions
 def track_emissions_session(logger: Logger): 
@@ -87,7 +92,7 @@ def main(logger: Logger):
     '''
     
                                
-    #train_eval_session(logger)
+    train_eval_session(logger)
     #track_emissions_session(logger)
     #test_prediction()
     #test_denoising()
@@ -99,7 +104,15 @@ def main(logger: Logger):
     #UNet.show_model_summary()          #   7.8 million parameters
     #UNetPP.show_model_summary()        #   9.0 million parameters
     #TransUNet.show_model_summary()     # 100.9 million parameters
-    LightMUNet.show_model_summary()     #   1.1 million parameters
+    LightMUNet.show_model_summary()     #   8.6 million parameters
+    model = LightMUNet()
+    model.build(model.build_input_shape)
+    print("Model name: ", model.name)
+    for v in model.submodules:
+        if getattr(v, "name", None) is None:
+            print("Layer with None name: ", v)
+        else:
+            print("Layer with name: ", getattr(v, "name"))
 
 # Entry point
 if __name__ == "__main__":

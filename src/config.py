@@ -23,7 +23,7 @@ class ParametersRegistry:
     
     # Default parameters
     DEFAULT_PARAMETERS = Parameters(
-        BATCH_SIZE = 16,
+        BATCH_SIZE = 8,
         DECAYING_FACTOR = 0.5,
         PATIENCE = 3,
         EPOCHS = 50,
@@ -88,7 +88,7 @@ class ParametersRegistry:
     )
     
     LIGHTMUNET = ParametersValues(
-        BATCH_SIZE_VALUES = (8, 12),
+        BATCH_SIZE_VALUES = (4, ),
         DECAYING_FACTOR_VALUES = (0.5, 0.3),
         PATIENCE_VALUES = (3, 2),
         EPOCHS = 40,
@@ -101,6 +101,7 @@ class SaveFilename(Enum):
     EMISSIONS = "emissions.json"
     EVALUATION = "evaluation.json"
     MODEL = "model.hdf5"
+    MODEL_TF = "model.tf"
     PARAMETERS = "parameters.json"
     TIME = "time.json"
     TRAINING = "training.csv"

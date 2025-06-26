@@ -1,4 +1,3 @@
-import inspect
 from transunet import TransUNet as ImportedTransUNet
 from utils.misc import ParametersLoaderModel
 from config import INPUT_WIDTH, ParametersRegistry

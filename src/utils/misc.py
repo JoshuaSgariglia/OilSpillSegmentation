@@ -36,6 +36,7 @@ class BCEDiceLoss(Loss):
 # Custom Parameter Loader class for models
 class ParametersLoaderModel(Model):
     NAME: str
+    NEEDS_BUILDING: bool = False
     
     @classmethod
     def get_parameters_values(cls) -> ParametersValues:
