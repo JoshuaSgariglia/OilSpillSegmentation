@@ -161,7 +161,6 @@ class TrainingSession:
             monitor='val_loss',
             mode='min',
             save_best_only=True,
-            # Save Model if it does not need building, otherwise save only weights
             save_weights_only=False
             )
 

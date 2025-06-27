@@ -31,6 +31,16 @@ class ParametersRegistry:
         MIN_LR = 1e-6
     )
     
+    # Session test parameters
+    SESSION_TEST_PARAMETERS = Parameters(
+        BATCH_SIZE = 4,
+        DECAYING_FACTOR = 0.5,
+        PATIENCE = 3,
+        EPOCHS = 1,
+        LR = 1e-4,
+        MIN_LR = 1e-6
+    )
+    
     # Default parameter values for automatic training
     DEFAULT_PARAMETERS_VALUES = ParametersValues(
         BATCH_SIZE_VALUES = (8, 16, 32),
@@ -92,8 +102,8 @@ class ParametersRegistry:
         DECAYING_FACTOR_VALUES = (0.5, 0.3),
         PATIENCE_VALUES = (3, 2),
         EPOCHS = 40,
-        LR = 1e-4,
-        MIN_LR = 5e-7
+        LR = 1e-5,
+        MIN_LR = 1e-7
     )
 
 # Names of files created during training and validation

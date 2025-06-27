@@ -200,7 +200,7 @@ class EncoderBlock(layers.Layer):
     """
     def __init__(self, num_channels, num_rvm_layers=2, ssm_kernel_size=4, expand_ratio=2, dw_kernel=3):
         super().__init__()
-        num_channels_list: list[int] = [num_channels * (i + 1) for i in range(num_rvm_layers)]
+        num_channels_list: list[int] = [num_channels, num_channels * 2]
         
         for i in range(num_rvm_layers):
             setattr(self, f"rvm_block_{i}", RVMLayer(

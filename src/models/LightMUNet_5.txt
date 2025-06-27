@@ -44,84 +44,108 @@ def DepthwiseSeparableConv2D(out_channels, name, kernel_size=3, stride=1, activa
     pointwise_conv = layers.Conv2D(out_channels, kernel_size=1, strides=1, activation=activation, padding=padding, use_bias=use_bias)
     return Sequential([depthwise_conv, pointwise_conv], name=name)
 
-# --- SSM Block (Diagonal, Efficient) ---
+# --- SSM Block ---
 class SSMBlock(layers.Layer):
     """
-    Implements the classic Mamba SSM block:
-    - Input projection to value and gate
-    - SSM kernel generation (depthwise Conv1D, causal)
-    - Gating and output projection
+    Efficient diagonal SSM block using tf.scan for fast sequence modeling.
+    Implements a Mamba-style block using learned per-step diagonal state-space updates.
     """
-    def __init__(self, channels, ssm_kernel_size=4):
+
+    def __init__(self, channels, ssm_state_dim):
+        """
+        Args:
+            channels (int): Number of input/output feature channels (C).
+            ssm_state_dim (int): Dimension of the SSM hidden state per channel (S).
+        """
         super().__init__()
         self.channels = channels
-        self.ssm_kernel_size = ssm_kernel_size
+        self.state_dim = ssm_state_dim
 
-        # Input projection: for value and gate
-        self.input_proj = layers.Dense(2 * channels, use_bias=True)
-        # SSM kernel generator: depthwise Conv1D (causal)
-        self.ssm_kernel_conv = layers.Conv1D(
-            filters=channels,
-            kernel_size=ssm_kernel_size,
-            padding="causal",
-            groups=channels,
-            use_bias=True
-        )
-        # Output projection
+        # Input projection to produce:
+        # - value, gate, delta (C each)
+        # - A_mat, B_mat, C_mat (C * S each)
+        total_proj = 3 * channels + 3 * channels * ssm_state_dim
+        self.input_proj = layers.Dense(total_proj, use_bias=True)
+
+        # Output projection (mix channels after SSM processing)
         self.output_proj = layers.Dense(channels, use_bias=True)
+
+        # Layer normalization (as in Mamba)
         self.norm = layers.LayerNormalization(axis=-1)
 
     def call(self, inputs):
         """
-        inputs: Tensor of shape [batch_size, height, width, channels]
-        Returns: Tensor of shape [batch_size, height, width, channels]
+        Args:
+            inputs: Tensor of shape [B, H, W, C]
+        Returns:
+            Output: Tensor of shape [B, H, W, C]
         """
+        B = tf.shape(inputs)[0]
+        H = tf.shape(inputs)[1]
+        W = tf.shape(inputs)[2]
+        C = self.channels
+        S = self.state_dim
+        seq_len = H * W
 
-        # 1. Layer normalization (Mamba does this *before* input projection)
-        # Input shape: [B, H, W, C]
-        x = self.norm(inputs)
+        # 1. Normalize input
+        x = self.norm(inputs)  # [B, H, W, C]
 
-        # 2. Linear projection into two parts: value and gate
-        # Shape: [B, H, W, 2C]
-        proj = self.input_proj(x)
+        # 2. Flatten spatial dims into sequence: [B, seq_len, C]
+        x = tf.reshape(x, [B, seq_len, C])
 
-        # 3. Split into value and gate tensors
-        # Each of shape: [B, H, W, C]
-        value, gate = tf.split(proj, 2, axis=-1)
+        # 3. Linear projection to get all SSM parameters
+        proj = self.input_proj(x)  # [B, seq_len, total_proj]
 
-        # 4. Sigmoid gate to bound gating signal between [0, 1]
+        # 4. Split projection into components
+        split_sizes = [C, C, C, C * S, C * S, C * S]
+        value, gate, delta, A_mat, B_mat, C_mat = tf.split(proj, split_sizes, axis=-1)
+
+        # 5. Activation for gate
         gate = tf.sigmoid(gate)
 
-        # 5. Reshape spatial image into a 1D sequence per image
-        # - Treats the image as a sequence of H×W pixels
-        # - New shape: [B, H * W, C]
-        batch_size = tf.shape(inputs)[0]
-        height = tf.shape(inputs)[1]
-        width = tf.shape(inputs)[2]
-        channels = tf.shape(inputs)[3]
-        seq_len = height * width
+        # 6. Reshape A/B/C matrices to [B, seq_len, C, S]
+        A_mat = tf.reshape(A_mat, [B, seq_len, C, S])
+        B_mat = tf.reshape(B_mat, [B, seq_len, C, S])
+        C_mat = tf.reshape(C_mat, [B, seq_len, C, S])
 
-        value_seq = tf.reshape(value, [batch_size, seq_len, channels])
-        gate_seq = tf.reshape(gate, [batch_size, seq_len, channels])
+        # 7. Expand dims for value/delta: [B, seq_len, C, 1]
+        value = tf.expand_dims(value, -1)
+        delta = tf.expand_dims(delta, -1)
 
-        # 6. Apply a depthwise causal Conv1D across the sequence
-        # - Simulates an SSM-like convolution over a 1D token sequence
-        # - Each channel is convolved separately due to depthwise
-        # - Output shape: [B, seq_len, C]
-        ssm_out_seq = self.ssm_kernel_conv(value_seq)
+        # 8. Transpose to time-major: [seq_len, B, C, S] or [seq_len, B, C, 1]
+        A_mat = tf.transpose(A_mat, [1, 0, 2, 3])
+        B_mat = tf.transpose(B_mat, [1, 0, 2, 3])
+        C_mat = tf.transpose(C_mat, [1, 0, 2, 3])
+        value = tf.transpose(value, [1, 0, 2, 3])
+        delta = tf.transpose(delta, [1, 0, 2, 3])
+        gate = tf.transpose(gate, [1, 0, 2])  # [seq_len, B, C]
 
-        # 7. Gating: element-wise modulation
-        # Shape: [B, seq_len, C]
-        gated_seq = gate_seq * ssm_out_seq
+        # 9. Initial hidden state and output: [B, C, S] and [B, C]
+        h0 = tf.zeros([B, C, S], dtype=tf.float32)
+        y0 = tf.zeros([B, C], dtype=tf.float32)
+        initializer = (h0, y0)
 
-        # 8. Output projection (channel mixing across features)
-        # Shape remains: [B, seq_len, C]
-        out_seq = self.output_proj(gated_seq)
+        # 10. Step function for tf.scan
+        def ssm_step(carry, inputs):
+            h, _ = carry
+            A_t, B_t, C_t, d_t, u_t, g_t = inputs
+            h_new = d_t * (A_t * h) + d_t * (B_t * u_t)  # [B, C, S]
+            y_t = tf.reduce_sum(C_t * h_new, axis=-1)   # [B, C]
+            y_t = g_t * y_t                              # [B, C]
+            return (h_new, y_t)
 
-        # 9. Reshape sequence back to spatial image
-        # Final shape: [B, H, W, C]
-        out = tf.reshape(out_seq, [batch_size, height, width, channels])
+        # 11. Run scan over time steps
+        elems = (A_mat, B_mat, C_mat, delta, value, gate)
+        h_final, y_all = tf.scan(fn=ssm_step, elems=elems, initializer=initializer)
 
+        # 12. Transpose back to batch-major: [B, seq_len, C]
+        y_all = tf.transpose(y_all, [1, 0, 2])
+
+        # 13. Final projection
+        y_all = self.output_proj(y_all)  # [B, seq_len, C]
+
+        # 14. Reshape to spatial dimensions: [B, H, W, C]
+        out = tf.reshape(y_all, [B, H, W, C])
         return out
 
 # --- VSS Module ---
@@ -129,11 +153,11 @@ class VSSModule(layers.Layer):
     """
     Vision State Space (VSS) module as in the diagram.
     """
-    def __init__(self, num_channels, ssm_kernel_size=4, expand_ratio=2, dw_kernel=3):
+    def __init__(self, num_channels, ssm_state_dim=16, expand_ratio=2, dw_kernel=3):
         super().__init__()
         self.num_channels = num_channels
         self.expand_ratio = expand_ratio
-        self.ssm_kernel_size = ssm_kernel_size
+        self.ssm_state_dim = ssm_state_dim
 
         self.linear1 = layers.Dense(expand_ratio * num_channels)
         self.dwconv = DepthwiseSeparableConv2D(
@@ -145,7 +169,7 @@ class VSSModule(layers.Layer):
         self.silu1 = layers.Activation('swish')
         self.linear2 = layers.Dense(expand_ratio * num_channels)
         self.silu2 = layers.Activation('swish')
-        self.ssm = SSMBlock(expand_ratio * num_channels, ssm_kernel_size=ssm_kernel_size)
+        self.ssm = SSMBlock(expand_ratio * num_channels, ssm_state_dim=ssm_state_dim)
         self.norm = layers.LayerNormalization(axis=-1)
         self.linear3 = layers.Dense(num_channels)
 
@@ -173,10 +197,10 @@ class RVMLayer(layers.Layer):
     """
     RVM Layer: LayerNorm -> VSS -> Add & Scale -> LayerNorm -> Projection
     """
-    def __init__(self, num_channels, ssm_kernel_size=4, expand_ratio=2, dw_kernel=3, keep_depth=False):
+    def __init__(self, num_channels, ssm_state_dim=16, expand_ratio=2, dw_kernel=3, keep_depth=False):
         super().__init__()
         self.norm1 = layers.LayerNormalization(axis=-1)
-        self.vss = VSSModule(num_channels, ssm_kernel_size, expand_ratio, dw_kernel)
+        self.vss = VSSModule(num_channels, ssm_state_dim, expand_ratio, dw_kernel)
         self.scale = self.add_weight(shape=(1,), name=f"weight_{str(num_channels)}", initializer="ones", trainable=True)
         self.norm2 = layers.LayerNormalization(axis=-1)
         self.proj = layers.Dense(num_channels if keep_depth else num_channels * 2)
@@ -198,13 +222,13 @@ class EncoderBlock(layers.Layer):
     """
     Encoder block: multiple RVM layers followed by MaxPooling2D.
     """
-    def __init__(self, num_channels, num_rvm_layers=2, ssm_kernel_size=4, expand_ratio=2, dw_kernel=3):
+    def __init__(self, num_channels, num_rvm_layers=2, ssm_state_dim=16, expand_ratio=2, dw_kernel=3):
         super().__init__()
-        num_channels_list: list[int] = [num_channels * (i + 1) for i in range(num_rvm_layers)]
+        num_channels_list: list[int] = [num_channels, num_channels * 2]
         
         for i in range(num_rvm_layers):
             setattr(self, f"rvm_block_{i}", RVMLayer(
-                num_channels_list[i], ssm_kernel_size, expand_ratio, dw_kernel))
+                num_channels_list[i], ssm_state_dim, expand_ratio, dw_kernel))
         
         self._num_rvm_layers = num_rvm_layers  # Store as an int, which is safe!
             
@@ -279,7 +303,7 @@ class LightMUNet(ParametersLoaderModel):
         num_encoders=3,
         num_decoders=3,
         rvm_layers_per_block=2,
-        ssm_kernel_size=4,
+        ssm_state_dim=8,
         expand_ratio=2,
         dw_kernel=3,
     ):
@@ -308,13 +332,13 @@ class LightMUNet(ParametersLoaderModel):
             setattr(self, f"encoder_block_{i}", EncoderBlock(
                 num_channels=filters_list[i],
                 num_rvm_layers=rvm_layers_per_block,
-                ssm_kernel_size=ssm_kernel_size,
+                ssm_state_dim=ssm_state_dim,
                 expand_ratio=expand_ratio,
                 dw_kernel=dw_kernel,
                 ))
 
         # Bottleneck
-        self.bottleneck = RVMLayer(filters, ssm_kernel_size, expand_ratio, dw_kernel, keep_depth=True)
+        self.bottleneck = RVMLayer(filters, ssm_state_dim, expand_ratio, dw_kernel, keep_depth=True)
         
         filters_list = list(reversed(filters_list))
 

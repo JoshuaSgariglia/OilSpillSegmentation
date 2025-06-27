@@ -67,3 +67,7 @@ py3*/
 *module_test/
 *saves/
 *emissions/
+
+# Files
+prova.py
+emissions.csv

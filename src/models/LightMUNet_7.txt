@@ -44,83 +44,71 @@ def DepthwiseSeparableConv2D(out_channels, name, kernel_size=3, stride=1, activa
     pointwise_conv = layers.Conv2D(out_channels, kernel_size=1, strides=1, activation=activation, padding=padding, use_bias=use_bias)
     return Sequential([depthwise_conv, pointwise_conv], name=name)
 
-# --- SSM Block (Diagonal, Efficient) ---
+# --- SSM Block ---
 class SSMBlock(layers.Layer):
     """
-    Implements the classic Mamba SSM block:
-    - Input projection to value and gate
-    - SSM kernel generation (depthwise Conv1D, causal)
-    - Gating and output projection
+    Mamba-style SSM block WITHOUT gating.
+    The input projection generates the depthwise convolution kernel weights directly.
     """
-    def __init__(self, channels, ssm_kernel_size=4):
+
+    def __init__(self, channels, ssm_kernel_size=16):
         super().__init__()
         self.channels = channels
         self.ssm_kernel_size = ssm_kernel_size
 
-        # Input projection: for value and gate
-        self.input_proj = layers.Dense(2 * channels, use_bias=True)
-        # SSM kernel generator: depthwise Conv1D (causal)
-        self.ssm_kernel_conv = layers.Conv1D(
-            filters=channels,
-            kernel_size=ssm_kernel_size,
-            padding="causal",
-            groups=channels,
-            use_bias=True
-        )
-        # Output projection
+        # Layer normalization before kernel generation
+        self.norm = layers.LayerNormalization(epsilon=1e-5)
+
+        # Input projection directly generates convolution kernel weights
+        # Output shape: [B, H, W, channels * ssm_kernel_size]
+        self.kernel_generator = layers.Dense(channels * ssm_kernel_size, use_bias=True)
+
+        # Output projection to mix channels after convolution
         self.output_proj = layers.Dense(channels, use_bias=True)
-        self.norm = layers.LayerNormalization(axis=-1)
 
     def call(self, inputs):
-        """
-        inputs: Tensor of shape [batch_size, height, width, channels]
-        Returns: Tensor of shape [batch_size, height, width, channels]
-        """
+        B, H, W, C = tf.shape(inputs)[0], tf.shape(inputs)[1], tf.shape(inputs)[2], self.channels
+        seq_len = H * W
 
-        # 1. Layer normalization (Mamba does this *before* input projection)
-        # Input shape: [B, H, W, C]
-        x = self.norm(inputs)
+        # 1. Normalize inputs
+        x = self.norm(inputs)  # [B, H, W, C]
 
-        # 2. Linear projection into two parts: value and gate
-        # Shape: [B, H, W, 2C]
-        proj = self.input_proj(x)
+        # 2. Generate kernels for each channel and spatial position
+        kernels = self.kernel_generator(x)  # [B, H, W, C * k]
+        kernels = tf.reshape(kernels, [B, seq_len, C, self.ssm_kernel_size])
+        kernels = tf.transpose(kernels, [0, 2, 3, 1])  # [B, C, k, L]
 
-        # 3. Split into value and gate tensors
-        # Each of shape: [B, H, W, C]
-        value, gate = tf.split(proj, 2, axis=-1)
+        # 3. Flatten spatial dims for convolution input
+        input_seq = tf.reshape(inputs, [B, seq_len, C])  # [B, L, C]
+        input_seq = tf.transpose(input_seq, [0, 2, 1])   # [B, C, L]
 
-        # 4. Sigmoid gate to bound gating signal between [0, 1]
-        gate = tf.sigmoid(gate)
+        # 4. Pad input sequence for causal convolution
+        padding = tf.zeros([B, C, self.ssm_kernel_size - 1], dtype=input_seq.dtype)
+        padded_seq = tf.concat([padding, input_seq], axis=-1)  # [B, C, L + k -1]
 
-        # 5. Reshape spatial image into a 1D sequence per image
-        # - Treats the image as a sequence of H×W pixels
-        # - New shape: [B, H * W, C]
-        batch_size = tf.shape(inputs)[0]
-        height = tf.shape(inputs)[1]
-        width = tf.shape(inputs)[2]
-        channels = tf.shape(inputs)[3]
-        seq_len = height * width
+        # 5. Apply depthwise convolution per batch/channel using kernels
+        # Unfortunately, TensorFlow does not support per-sample kernels natively,
+        # so we'll do a batched multiply + sum trick (slow for large batches/sequences).
+        # Here is a simple but not optimized implementation:
 
-        value_seq = tf.reshape(value, [batch_size, seq_len, channels])
-        gate_seq = tf.reshape(gate, [batch_size, seq_len, channels])
+        # Extract sliding windows of size k along the sequence dimension
+        windows = tf.signal.frame(padded_seq, frame_length=self.ssm_kernel_size, frame_step=1, axis=-1)  
+        # [B, C, L, k]
 
-        # 6. Apply a depthwise causal Conv1D across the sequence
-        # - Simulates an SSM-like convolution over a 1D token sequence
-        # - Each channel is convolved separately due to depthwise
-        # - Output shape: [B, seq_len, C]
-        ssm_out_seq = self.ssm_kernel_conv(value_seq)
+        # Multiply windows by kernels and sum over kernel dim
+        # kernels shape: [B, C, k, L], transpose last dims to match windows
+        kernels_transposed = tf.transpose(kernels, [0, 1, 3, 2])  # [B, C, L, k]
 
-        # 7. Gating: element-wise modulation
-        # Shape: [B, seq_len, C]
-        gated_seq = gate_seq * ssm_out_seq
+        conv_out = tf.reduce_sum(windows * kernels_transposed, axis=-1)  # [B, C, L]
 
-        # 8. Output projection (channel mixing across features)
-        # Shape remains: [B, seq_len, C]
-        out_seq = self.output_proj(gated_seq)
+        # 6. Transpose back to [B, L, C]
+        conv_out = tf.transpose(conv_out, [0, 2, 1])  # [B, L, C]
 
-        # 9. Reshape sequence back to spatial image
-        # Final shape: [B, H, W, C]
-        out = tf.reshape(out_seq, [batch_size, height, width, channels])
+        # 7. Output projection
+        out_seq = self.output_proj(conv_out)  # [B, L, C]
+
+        # 8. Reshape back to [B, H, W, C]
+        out = tf.reshape(out_seq, [B, H, W, C])
 
         return out
 
@@ -200,7 +188,7 @@ class EncoderBlock(layers.Layer):
     """
     def __init__(self, num_channels, num_rvm_layers=2, ssm_kernel_size=4, expand_ratio=2, dw_kernel=3):
         super().__init__()
-        num_channels_list: list[int] = [num_channels * (i + 1) for i in range(num_rvm_layers)]
+        num_channels_list: list[int] = [num_channels, num_channels * 2]
         
         for i in range(num_rvm_layers):
             setattr(self, f"rvm_block_{i}", RVMLayer(

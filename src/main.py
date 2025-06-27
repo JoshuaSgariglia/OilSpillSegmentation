@@ -9,7 +9,6 @@ from models.TransUNet import TransUNet
 from keras.models import Model
 from tensorflow.keras.models import load_model # type: ignore
 from predict import EvaluationSession
-from models.VMUNetV2 import VMUNetV2
 from models.LightMUNet import LightMUNet
 from utils.Denoiser import Denoiser
 from utils.SavesManager import SavesManager
@@ -26,7 +25,7 @@ denoise_dataset = DatasetUtils.denoise_dataset
 # Training and evaluation session
 def train_eval_session(logger: Logger):
     # Instantiate objects needed for training and evaluation
-    datasets = [DatasetRegistry.PALSAR]
+    datasets = [DatasetRegistry.PALSAR, DatasetRegistry.SENTINEL]
     models = [LightMUNet]
     params = [ParametersRegistry.AUTOMATIC]
     
@@ -105,14 +104,6 @@ def main(logger: Logger):
     #UNetPP.show_model_summary()        #   9.0 million parameters
     #TransUNet.show_model_summary()     # 100.9 million parameters
     LightMUNet.show_model_summary()     #   8.6 million parameters
-    model = LightMUNet()
-    model.build(model.build_input_shape)
-    print("Model name: ", model.name)
-    for v in model.submodules:
-        if getattr(v, "name", None) is None:
-            print("Layer with None name: ", v)
-        else:
-            print("Layer with name: ", getattr(v, "name"))
 
 # Entry point
 if __name__ == "__main__":

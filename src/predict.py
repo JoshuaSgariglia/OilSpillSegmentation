@@ -122,8 +122,14 @@ class EvaluationSession:
         image = DatasetUtils.load_image(image_path, extra_filter)
         mask = DatasetUtils.load_mask(mask_path)
         
-        # Convert image from 3-channels to 1-channel (needed for TransUNet)
-        image = image = np.repeat(image, 3, axis=2) if model.input_shape[-1] == 3 else image
+        # Get number of channels
+        if hasattr(model, "inp_channels"):
+            n_channels = model.inp_channels
+        else:
+            n_channels = model.input_shape[-1]
+         
+        # Convert image from 3-channels to 1-channel (needed for TransUNet)   
+        image = np.repeat(image, 3, axis=2) if n_channels == 3 else image
         
         # Predict
         predict = model.predict(np.expand_dims(image, axis=0))
