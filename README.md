@@ -151,13 +151,6 @@ OilSpillSegmentation/           # Working directory
 
 ## 🧪 Come Eseguire il Codice
 
-### Entry point
-Il blocco `if __name__ == "__main__"`:
-- Configura la GPU
-- Inizializza il logger
-- Esegue la funzione `main()`
-- Registra eventuali eccezioni durante l’esecuzione
-
 ### 1. Hardware e sistema
 Durante l'intero progetto si è fatto uso di una scheda video NVIDIA GeForce RTX 4070 per velocizzare l'addestramento delle reti.
 Per poter far uso della GPU, il progetto è stato eseguito in WSL2 con Ubuntu 24.04.2 LTS; in alternativa, è possibile ricorrere a un container Docker.
@@ -179,6 +172,18 @@ cd OilSpillSegmentation
 pip install -r requirements.txt
 ```
 
+### 5. Individua l'entry point
+L'entry point dell'applicazione è costituito dal file `main.py`.
+
+Il blocco `if __name__ == "__main__"`:
+- Configura la GPU
+- Inizializza il logger
+- Esegue la funzione `main()`
+- Registra eventuali eccezioni durante l’esecuzione
+
+La funzione `main()` al suo interno permette di attivare, tramite commento/scommento, diverse funzionalità relative all'addestramento, alla valutazione, alla predizione e al monitoraggio.
+Alcune delle funzioni chiamate dal `main()` sono definite nel file stesso, ed è possibile personalizzarne l'esecuzione modificando i parametri definiti al loro inizio (per esempio, `train_eval_session` consente di specificare dataset, modelli e alcuni parametri di addestramento).
+
 ### 5. Scarica e preprocessa il dataset
 - Scarica il dataset SOS corretto da [questo link](https://drive.google.com/file/d/12grU_EAPbW75eyyHj-U5pOfnwQzm0MFw/view)
 - Poni il dataset nella struttura del progetto (directory `sos-dataset/`)
@@ -187,8 +192,6 @@ pip install -r requirements.txt
 Questo passo è necessario se si vuole addestrare e valutare i modelli sul dataset preprocessato, altrimenti può essere saltato.
 
 ### 6. Seleziona una funzionalità disponibile nel `main.py`
-
-Il file `main.py` funge da punto di ingresso principale del progetto e permette di attivare, tramite commento/scommento, diverse funzionalità relative all'addestramento, alla valutazione, alla predizione e al monitoraggio.  
 Di seguito una panoramica delle opzioni disponibili all’interno della funzione `main()`:
 
 #### Preprocessing
@@ -199,26 +202,26 @@ Di seguito una panoramica delle opzioni disponibili all’interno della funzione
 
 - `determine_best_filters(logger: Logger)`  
   Valuta vari filtri di denoising su un subset per determinare la combinazione più efficace.  
-  I modelli addestrati e valutati sono salvati al percorso `saves/{nome_dataset}/{nome_modello}`.
+  I modelli addestrati e valutati sono salvati al percorso `saves/{nome_dataset}/{nome_modello}/`.
 
 ---
 
 #### Addestramento e Valutazione
 
 - `train_eval_session(logger: Logger)`  
-  Addestra tutti i modelli con diverse configurazioni e ne valuta le performance su validation/test set.
-  I modelli addestrati e valutati sono salvati al percorso `saves/{nome_dataset}/{nome_modello}`.
+  Addestra tutti i modelli con diverse configurazioni e ne valuta le performance su validation/test set.  
+  I modelli addestrati e valutati sono salvati al percorso `saves/{nome_dataset}/{nome_modello}/`.
 
 - `determine_best_models(logger: Logger)`  
   Analizza i risultati per identificare i modelli con le migliori metriche.  
-  Per ogni dataset i migliori modelli sono salvati al percorso `saves/{nome_dataset}/best_models`.
+  Per ogni dataset i migliori modelli sono salvati al percorso `saves/{nome_dataset}/best_models/`.
 
 ---
 
 #### Monitoraggio delle Emissioni
 
 - `track_emissions_session(logger: Logger)`  
-  Calcola e registra le emissioni di CO₂ associate all’addestramento e alla valutazione tramite la libreria `codecarbon`.
+  Calcola e registra le emissioni di CO₂ associate all’addestramento e alla valutazione tramite la libreria `codecarbon`.  
   Le emissioni misurate sono salvate al percorso `emissions/`.
   
 ---
