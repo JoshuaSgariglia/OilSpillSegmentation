@@ -9,8 +9,8 @@ from utils.SavesManager import SavesManager
 from utils.DatasetUtils import DatasetUtils
 from utils.BatchLoader import BatchLoader
 from config import DatasetPaths, ParametersRegistry
-from keras.models import Model
 from utils.misc import DiceLoss, BCEDiceLoss, Parameters, ParametersLoaderModel
+from utils.ModelLoader import ModelLoader
 
 class TrainingSession:
     def __init__(self,  
@@ -292,6 +292,18 @@ class TrainingAndEvaluationSession:
         SavesManager.reset_save_paths()
         
         self.logger.info("Ended model-wise training and evaluation session")
+        
+    # Load and evaluate model
+    @staticmethod
+    def load_and_evaluate(logger: Logger, dataset: DatasetPaths, dir_name: str):
+        # Choose a function to execute
+        training_session = TrainingSession(logger, dataset, [None])
+        SavesManager.set_save_paths(dataset.MODEL_SAVES_PATH, dir_name)
+        EvaluationSession.evaluate(training_session.test_img_paths, 
+                               training_session.test_mask_paths, 
+                               ModelLoader.load_safe(dir_name), 
+                               dir_name, 
+                               logger)
         
         
         

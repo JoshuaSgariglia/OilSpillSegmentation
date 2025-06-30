@@ -1,14 +1,14 @@
 from logging import Logger
 import cv2
 import numpy as np
-from models import TransUNet
+from dataclass import DatasetPaths
+from utils.ModelLoader import ModelLoader
 from utils.Denoiser import Denoiser
 from utils.DatasetUtils import DatasetUtils
 from utils.SavesManager import SavesManager
 from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
 from config import DatasetRegistry, Paths
-import os 
-from tensorflow.keras.models import load_model # type: ignore
+import os
 from PIL import Image
 from keras.models import Model
 
@@ -118,7 +118,7 @@ class EvaluationSession:
     # Predict image
     @staticmethod
     def predict_image(image_path: str, mask_path: str, model: Model, extra_filter: callable = Denoiser.gaussian_blur):
-        # Load image and its mask
+        # Load image and its mask (includes preprocessing)
         image = DatasetUtils.load_image(image_path, extra_filter)
         mask = DatasetUtils.load_mask(mask_path)
         
@@ -153,9 +153,11 @@ class EvaluationSession:
 
     # Predict and save single image
     @classmethod
-    def predict_and_save_image(cls, image_path: str, mask_path: str, model: Model): 
+    def predict_and_save_image(cls, image_path: str, mask_path: str, model: Model):
+        # Predict image 
         mask, prediction = cls.predict_image(image_path, mask_path, model)
         
+        # Load image
         image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
                                             
         os.makedirs(Paths.PREDICTIONS, exist_ok=True)
@@ -174,14 +176,16 @@ class EvaluationSession:
         print(f"Recall: {recall_score(mask, prediction, average = None)}")
         print(f"F1 Score: {f1_score(mask, prediction, average = None)}")
         print(f"IoU: {cls.compute_iou(conf_matrix)}")
-        
-    def test_prediction(image_number: int = 123):
+    
+    @staticmethod
+    def test_prediction(dataset: DatasetPaths = DatasetRegistry.PALSAR, denoised: bool = True, image_number: int = 123, 
+                        model_path: str = "saves/palsar/best_models/UNetPP/model.hdf5"):
         # Test single image
-        image_path = os.path.join(DatasetRegistry.PALSAR.TEST_IMAGES_PATH, f'{image_number}.png')
-        mask_path = os.path.join(DatasetRegistry.PALSAR.TEST_LABELS_PATH, f'{image_number}.png') 
+        image_path = os.path.join(dataset.TEST_IMAGES_DENOISED_PATH if denoised else dataset.TEST_IMAGES_PATH, f'{image_number}.png')
+        mask_path = os.path.join(dataset.TEST_LABELS_PATH, f'{image_number}.png') 
 
         # Load model
-        model = load_model(f"{os.getcwd()}/module_test/prediction/UNetL_2025-06-16_17-37-57_for_testing/model.hdf5")
+        model = ModelLoader.load_safe(os.path.join(os.getcwd(), model_path), full_path=True)
 
         EvaluationSession.predict_and_save_image(image_path, mask_path, model)
 

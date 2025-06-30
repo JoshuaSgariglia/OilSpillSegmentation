@@ -1,6 +1,5 @@
 import tensorflow as tf
 from tensorflow.keras import layers, Sequential # type: ignore
-
 from config import INP_CHANNELS, INPUT_HEIGHT, INPUT_WIDTH, OUT_MASKS, ParametersRegistry
 from dataclass import Parameters
 from utils.misc import ParametersLoaderModel # type: ignore

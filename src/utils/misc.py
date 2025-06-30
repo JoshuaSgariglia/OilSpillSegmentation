@@ -6,9 +6,7 @@ from keras.models import Model
 from tensorflow.keras.losses import Loss, BinaryCrossentropy # type: ignore
 import tensorflow as tf
 from config import DATETIME_FORMAT, LOG_FILENAME, Paths
-
 from dataclass import ParametersValues, Parameters
-    
 
 # Losses
 class DiceLoss(Loss):
@@ -37,6 +35,10 @@ class BCEDiceLoss(Loss):
 class ParametersLoaderModel(Model):
     NAME: str
     NEEDS_BUILDING: bool = False
+    
+    @property
+    def INTERNAL_NAME(self) -> str:
+        return self.name if self.name is not None else self.NAME
     
     @classmethod
     def get_parameters_values(cls) -> ParametersValues:

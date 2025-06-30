@@ -3,8 +3,8 @@ import json
 import os
 from config import SaveFilename
 from utils.misc import current_datetime, Parameters
-from keras.models import Model
-from tensorflow.keras.models import load_model # type: ignore     
+from utils.ModelLoader import ModelLoader
+from keras.models import Model   
 
         
         
@@ -126,7 +126,7 @@ class SavesManager:
     # Loading evaluation from JSON file
     @classmethod
     def load_model(cls) -> Model:
-        model = load_model(cls.CURRENT_SAVE_PATHS.MODEL)
+        model = ModelLoader.load_safe(cls.CURRENT_SAVE_PATHS.MODEL, full_path=True)
         return model
     
     # Class that represents all the save paths for a specific model

@@ -1,4 +1,3 @@
-import random
 from tensorflow.keras.utils import Sequence # type: ignore
 import numpy as np
 from config import INP_CHANNELS, INPUT_HEIGHT, INPUT_WIDTH, OUT_MASKS

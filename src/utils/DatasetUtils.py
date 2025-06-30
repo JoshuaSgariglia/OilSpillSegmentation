@@ -94,9 +94,9 @@ class DatasetUtils:
 
     
     @staticmethod
-    def test_denoising(image_number: int = 123):
-        image_path = os.path.join(DatasetRegistry.PALSAR.TEST_IMAGES_PATH, f'{image_number}.png')
-        mask_path = os.path.join(DatasetRegistry.PALSAR.TEST_LABELS_PATH, f'{image_number}.png')    
+    def test_denoising(dataset: DatasetPaths = DatasetRegistry.PALSAR, image_number: int = 123):
+        image_path = os.path.join(dataset.TEST_IMAGES_PATH, f'{image_number}.png')
+        mask_path = os.path.join(dataset.TEST_LABELS_PATH, f'{image_number}.png')    
         
         image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)  
         mask = cv2.imread(mask_path, cv2.IMREAD_UNCHANGED)  
