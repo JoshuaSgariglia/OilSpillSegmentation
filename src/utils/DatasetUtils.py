@@ -1,5 +1,6 @@
 import glob
 import os
+from typing import Callable
 from PIL import Image
 import cv2
 import numpy as np
@@ -34,7 +35,7 @@ class DatasetUtils:
 
     # Loading and preprocessing images or masks
     @staticmethod
-    def load_data(filepath: str, preprocessing: callable, extra_filter: callable = None):
+    def load_data(filepath: str, preprocessing: Callable, extra_filter: Callable = None):
         image = cv2.imread(filepath, cv2.IMREAD_UNCHANGED)
         image = image[:, :, 0]
         image = cv2.resize(image, (INPUT_WIDTH, INPUT_HEIGHT))
@@ -45,7 +46,7 @@ class DatasetUtils:
 
     # Preprocessing logic for image
     @staticmethod
-    def preprocess_image(image: NDArray[float32], extra_filter: callable = None) -> NDArray[float32]:
+    def preprocess_image(image: NDArray[float32], extra_filter: Callable = None) -> NDArray[float32]:
         # IoU UNetL without filter: 0.792  
         # fastNlMeans: 0.791
         #image = Denoiser.median_blur(image) # 0.790 : 0.792 with fnlm
@@ -61,14 +62,14 @@ class DatasetUtils:
 
     # Preprocessing logic for mask
     @staticmethod
-    def preprocess_mask(mask: NDArray[float32], extra_filter: callable = None) -> NDArray[float32]:
+    def preprocess_mask(mask: NDArray[float32], extra_filter: Callable = None) -> NDArray[float32]:
         mask = mask.astype(np.float32) / 255.0
         mask = (mask >= 0.5).astype(np.float32)  # Binarize
         return mask
 
     # Loading and proprocessing image file
     @classmethod
-    def load_image(cls, filepath: str, extra_filter: callable = None) -> NDArray[float32]:
+    def load_image(cls, filepath: str, extra_filter: Callable = None) -> NDArray[float32]:
         return cls.load_data(filepath, cls.preprocess_image, extra_filter)
 
     # Loading and preprocessing image file

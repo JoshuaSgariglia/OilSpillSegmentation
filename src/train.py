@@ -1,5 +1,6 @@
 from logging import Logger
 import timeit
+from typing import Callable
 import tensorflow as tf
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, ReduceLROnPlateau # type: ignore
 from sklearn.model_selection import train_test_split
@@ -199,7 +200,7 @@ class TrainingAndEvaluationSession:
                  parameters_list: list[Parameters] | None = None,
                  filter_parameters: bool = True,
                  denoised_dataset: bool = True,
-                 extra_filter: callable = Denoiser.gaussian_blur
+                 extra_filter: Callable = Denoiser.gaussian_blur
                  ):
         self.logger = logger
         self.dataset = dataset

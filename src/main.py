@@ -1,6 +1,7 @@
 from logging import Logger
 import os
 import shutil
+from typing import Callable
 
 from config import DatasetRegistry, ParametersRegistry
 from models.UNetL import UNetL
@@ -27,9 +28,11 @@ def train_eval_session(logger: Logger):
     datasets = [DatasetRegistry.PALSAR, DatasetRegistry.SENTINEL]
     models = [UNetL, UNet, UNetPPL, UNetPP, TransUNet, PretrainedTransUNet, LightMUNet]
     params = [ParametersRegistry.AUTOMATIC]
+    denoised: bool = True
+    extra_filter: Callable = Denoiser.gaussian_blur
     
     for dataset in datasets:
-        TrainingAndEvaluationSession(logger, dataset, models, params, True, True, Denoiser.gaussian_blur).start_model_wise()
+        TrainingAndEvaluationSession(logger, dataset, models, params, True, denoised, extra_filter).start_model_wise()
     
 # Find best combination of denoising filters
 def determine_best_filters(logger: Logger):
@@ -96,18 +99,18 @@ def main(logger: Logger):
     
     ''' Choose a function to execute '''
          
-    # Main functions             
+    ''' Main functions '''            
     #denoise_dataset(DatasetRegistry.SENTINEL)
     #determine_best_filters(logger)    
     #train_eval_session(logger)
     #track_emissions_session(logger)
     #determine_best_models(logger)
     
-    # Test denoising and prediction of single image
+    ''' Test denoising and prediction of single image '''
     #test_denoising()
     #test_prediction()
     
-    # Model summaries
+    ''' Model summaries '''
     #UNetL.show_model_summary()         #   1.9 million parameters
     #UNetPPL.show_model_summary()       #   2.2 million parameters
     #UNet.show_model_summary()          #   7.8 million parameters
