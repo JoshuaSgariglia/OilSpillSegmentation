@@ -1,1 +1,0 @@
-{"dataset": "Sentinel", "model": "UNetPP", "epochs": 40, "training": {"model_emissions": "50.83", "epoch_emissions": "1.27", "total_emissions": "406.62"}, "evaluation": {"model_emissions": "0.20", "inference_emissions": "0.00", "total_emissions": "1.58"}}

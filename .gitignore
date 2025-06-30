@@ -68,6 +68,8 @@ py3*/
 *saves/
 *emissions/
 
+UNet/
+
 # Files
 prova.py
 emissions.csv

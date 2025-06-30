@@ -1,1 +1,0 @@
-{"dataset": "Palsar", "model": "UNetPPL", "epochs": 40, "training": {"model_emissions": "30.91", "epoch_emissions": "0.77", "total_emissions": "247.27"}, "evaluation": {"model_emissions": "0.20", "inference_emissions": "0.00", "total_emissions": "1.57"}}

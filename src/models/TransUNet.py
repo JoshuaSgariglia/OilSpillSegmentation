@@ -12,9 +12,9 @@ class TransUNet(ParametersLoaderModel):
     def __init__(self, image_size=INPUT_WIDTH, num_classes=1, pretrain=False, **kwargs):
         # Instantiate the imported TransUNet model
         inner_model = ImportedTransUNet(image_size=image_size, num_classes=num_classes, pretrain=pretrain, **kwargs)
-
+        
         # Call super().__init__ with the imported model's inputs and outputs
-        super().__init__(inputs=inner_model.input, outputs=inner_model.output, name='TransUNet')
+        super().__init__(inputs=inner_model.input, outputs=inner_model.output, name=self.NAME)
     
     '''  
     def get_config(self):
@@ -38,4 +38,12 @@ class TransUNet(ParametersLoaderModel):
         
         return cls(**filtered_config)
     '''
-    
+
+
+
+class PretrainedTransUNet(TransUNet):
+    NAME = "PretrainedTransUNet"
+
+    def __init__(self, image_size=INPUT_WIDTH, num_classes=1, **kwargs):
+        # Call super().__init__ with the imported model's inputs and outputs
+        super().__init__(image_size=image_size, num_classes=num_classes, pretrain=True, **kwargs)

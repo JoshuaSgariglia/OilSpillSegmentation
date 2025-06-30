@@ -107,8 +107,9 @@ class SavesManager:
             
     # Loading evaluation from JSON file
     @classmethod
-    def load_evaluation(cls) -> dict:
-        evaluation_dict = cls.load_json(cls.CURRENT_SAVE_PATHS.EVALUATION)
+    def load_evaluation(cls, evaluation_path: str | None = None) -> dict:
+        path = cls.CURRENT_SAVE_PATHS.EVALUATION if evaluation_path is None else os. path.join(evaluation_path, SaveFilename.EVALUATION.value)
+        evaluation_dict = cls.load_json(path)
         return evaluation_dict
     
     # Save time in JSON file
