@@ -268,3 +268,4 @@ Visualizza la struttura e la complessità di ciascuna architettura.
 ## 📄 Licenza
 
 Questo progetto è distribuito sotto licenza **MIT**.
+Consulta il file [LICENSE](LICENSE) per maggiori dettagli.
