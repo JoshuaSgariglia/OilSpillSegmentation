@@ -9,8 +9,8 @@ Sviluppato per il corso di **Computer Vision e Deep Learning** presso l'Universi
 ## 📌 Obiettivi del Progetto
 
 - Segmentare sversamenti di petrolio in immagini SAR ottenute da satelliti **Sentinel-1** e **Palsar**.
-- Confrontare architetture deep learning come U-Net, U-Net++, TransUNet e LightMUNet.
-- Migliorare la qualità delle immagini tramite tecniche di denoising.
+- Confrontare architetture deep learning: U-Net, U-Net++, TransUNet e LightMUNet.
+- Confrontare tecniche di denoising: Box filter, Gaussian filter, Median filter, Bilateral filter e Fast NL-Means.
 - Monitorare le prestazioni in termini di accuratezza, tempo e impatto ambientale (emissioni di CO₂).
 
 ---
@@ -32,6 +32,9 @@ Per ridurre il rumore speckle tipico delle immagini SAR, è stata adottata una p
 
 1. **Fast NL-Means**
 2. **Filtro Gaussiano**
+
+Prima del training:
+- Applicazione del Fast NL-Means all'intero dataset
 
 Durante il training:
 - Riduzione dei canali da 3 a 1
@@ -97,33 +100,150 @@ Le emissioni di CO₂ sono state monitorate con la libreria [`codecarbon`](https
 - **Modello più energivoro**: LightMUNet
 
 ---
+## 📁 Struttura del Progetto
+
+```plaintext
+OilSpillSegmentation/           # Working directory
+├── emissions/                  # Directory per i risultati del tracciamento delle emissioni
+├── logs/                       # Directory per i file di log
+├── module_test/                # Directory per i test su predizioni e denoising
+├── saves/                      # Directory per i salvataggi dei modelli
+├── sos-dataset/                # Directory con il dataset SOS e la sua versione denoised
+├── src/                        # Directory con il codice
+│   ├── models/                 # Modelli implementati
+│   │   ├── __init__.py
+│   │   ├── LightMUNet.py       # Versione LightMUNet utilizzata (LightMUNet_4)
+│   │   ├── LightMUNet_1.py     # Versione fedele agli SSM, con matrici A, B, C, D e utilizzo di tf.scan
+│   │   ├── LightMUNet_2.py     # Come LightMUNet_1, ma modificata per essere più fedele all'articolo
+│   │   ├── LightMUNet_3.py     # Versione semplificata con Conv1D e gating, senza tf.scan
+│   │   ├── LightMUNet_4.py     # Come LightMUNet_3, ma migliorati gating e generazione della sequenza
+│   │   ├── LightMUNet_5.py     # Altra versione fedele agli SSM, con matrici A, B, C, D e utilizzo di tf.scan
+│   │   ├── LightMUNet_6.py     # Versione semi-semplificata con scan custom e update dello stato, senza matrici
+│   │   ├── LightMUNet_7.py     # Versione semplificata con sliding window al posto dello scan
+│   │   ├── TransUNet.py      
+│   │   ├── UNet.py
+│   │   ├── UNetL.py
+│   │   ├── UNetPP.py
+│   │   ├── UNetPPL.py
+│   │   └── VMUNetV2.py         # Non utilizzata, pesante
+│   │
+│   ├── utils/                  # Funzioni e classi ausiliarie
+│   │   ├── __init__.py
+│   │   ├── BatchLoader.py      # Classe per il caricamento dei batch
+│   │   ├── CO2Tracker.py       # Classe per il tracciamento delle emissioni di CO2
+│   │   ├── DatasetUtils.py     # Classe con metodi di utilità per il dataset, tra cui il preprocessing
+│   │   ├── Denoiser.py         # Classe che implementa i filtri
+│   │   ├── misc.py             # Funzioni varie
+│   │   ├── ModelLoader.py      # Classe per caricare i modelli
+│   │   └── SavesManager.py     # Classe per gestire il salvataggio e il caricamento di file
+│   │
+│   ├── config.py               # Configurazione dei modelli e del dataset
+│   ├── dataclass.py            # Interfacce dati
+│   ├── main.py                 # Script principale di esecuzione
+│   ├── predict.py              # Script per l'inferenza su immagini
+│   └── train.py                # Script per l’addestramento dei modelli
+│
+├── .gitignore
+├── README.md                   # Documentazione del progetto
+└── requirements.txt            # Dipendenze Python
+```
+
 
 ## 🧪 Come Eseguire il Codice
 
-### 1. Clona il repository
+### Entry point
+Il blocco `if __name__ == "__main__"`:
+- Configura la GPU
+- Inizializza il logger
+- Esegue la funzione `main()`
+- Registra eventuali eccezioni durante l’esecuzione
+
+### 1. Hardware e sistema
+Durante l'intero progetto si è fatto uso di una scheda video NVIDIA GeForce RTX 4070 per velocizzare l'addestramento delle reti.
+Per poter far uso della GPU, il progetto è stato eseguito in WSL2 con Ubuntu 24.04.2 LTS; in alternativa, è possibile ricorrere a un container Docker.
+
+Il progetto è predisposto all'utilizzo di una sola GPU. Si faccia riferimento a [questa documentazione](https://www.tensorflow.org/guide/keras/distributed_training) per l'addestramento distribuito.
+Si consiglia di apportare le modifiche alla funzione `config_gpu()` del file `misc.py`
+
+### 2. Installa Python
+La versione Python utilizzata è la 3.10.18.
+
+### 3. Clona il repository
 ```bash
 git clone https://github.com/JoshuaSgariglia/OilSpillSegmentation.git
 cd OilSpillSegmentation
 ```
 
-### 2. Installa le dipendenze
+### 4. Installa le dipendenze
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Scarica e preprocessa il dataset
+### 5. Scarica e preprocessa il dataset
 - Scarica il dataset SOS corretto da [questo link](https://drive.google.com/file/d/12grU_EAPbW75eyyHj-U5pOfnwQzm0MFw/view)
-- Applica i filtri di preprocessing usando gli script nella cartella `preprocessing/`
+- Poni il dataset nella struttura del progetto (directory `sos-dataset/`)
+- Applica i filtri di preprocessing usando la funzione `denoise_dataset` nel file `main.py`
 
-### 4. Addestra un modello
-```bash
-python train.py --model unet++ --dataset palsar
-```
+Questo passo è necessario se si vuole addestrare e valutare i modelli sul dataset preprocessato, altrimenti può essere saltato.
 
-### 5. Valuta un modello addestrato
-```bash
-python evaluate.py --model-path saved_models/unet++_palsar.h5
-```
+### 6. Seleziona una funzionalità disponibile nel `main.py`
+
+Il file `main.py` funge da punto di ingresso principale del progetto e permette di attivare, tramite commento/scommento, diverse funzionalità relative all'addestramento, alla valutazione, alla predizione e al monitoraggio.  
+Di seguito una panoramica delle opzioni disponibili all’interno della funzione `main()`:
+
+#### Preprocessing
+
+- `denoise_dataset(dataset: DatasetPaths)`  
+  Applica il Fast NL-Means all’intero dataset 'dataset'.
+  Il nuovo dataset è salvato al percorso `sos-dataset/denoised/`.
+
+- `determine_best_filters(logger: Logger)`  
+  Valuta vari filtri di denoising su un subset per determinare la combinazione più efficace.  
+  I modelli addestrati e valutati sono salvati al percorso `saves/{nome_dataset}/{nome_modello}`.
+
+---
+
+#### Addestramento e Valutazione
+
+- `train_eval_session(logger: Logger)`  
+  Addestra tutti i modelli con diverse configurazioni e ne valuta le performance su validation/test set.
+  I modelli addestrati e valutati sono salvati al percorso `saves/{nome_dataset}/{nome_modello}`.
+
+- `determine_best_models(logger: Logger)`  
+  Analizza i risultati per identificare i modelli con le migliori metriche.  
+  Per ogni dataset i migliori modelli sono salvati al percorso `saves/{nome_dataset}/best_models`.
+
+---
+
+#### Monitoraggio delle Emissioni
+
+- `track_emissions_session(logger: Logger)`  
+  Calcola e registra le emissioni di CO₂ associate all’addestramento e alla valutazione tramite la libreria `codecarbon`.
+  Le emissioni misurate sono salvate al percorso `emissions/`.
+  
+---
+
+#### Test su Immagine Singola
+
+- `test_denoising(dataset: DatasetPaths, image_number: int)`  
+  Applica varie combinazioni di filtri di denoising a una singola immagine e salva tutti i risultati in `module_test/denoising`.
+
+- `test_prediction(dataset: DatasetPaths, denoised: bool, image_number: int, model_path: str)`  
+  Effettua una predizione su una singola immagine usando un modello già addestrato e salva i risultati in 'module_test/prediction`.
+  `model_path` è il percorso del file del modello a partire dalla working directory, incluso il nome del file.
+
+---
+
+#### Visualizzazione dei Modelli
+
+- `UNetL.show_model_summary()` → ~1.9M parametri  
+- `UNetPPL.show_model_summary()` → ~2.2M parametri  
+- `UNet.show_model_summary()` → ~7.8M parametri  
+- `UNetPP.show_model_summary()` → ~9.0M parametri  
+- `TransUNet.show_model_summary()` → ~100.9M parametri  
+- `LightMUNet.show_model_summary()` → ~8.5M parametri  
+
+Visualizza la struttura e la complessità di ciascuna architettura.
 
 ---
 
@@ -132,14 +252,13 @@ python evaluate.py --model-path saved_models/unet++_palsar.h5
 - Utilizzo di funzioni di loss bilanciate (es. focal loss) per migliorare la segmentazione della classe minoritaria.
 - Esplorazione di architetture Mamba complete.
 - Ottimizzazione per inferenza in tempo reale.
-- Riduzione delle emissioni tramite pruning o quantizzazione.
 
 ---
 
 ## 👨‍🔬 Autori
 
-- **Joshua Sgariglia**
 - **Angelo Kollcaku**
+- **Joshua Sgariglia**
 
 > Supervisione: Prof.ssa Lucia Migliorelli, Prof. Alessandro Galdelli, Prof. Adriano Mancini, Prof. Stefano Mereu  
 > Università Politecnica delle Marche – A.A. 2024/2025
@@ -148,5 +267,4 @@ python evaluate.py --model-path saved_models/unet++_palsar.h5
 
 ## 📄 Licenza
 
-Questo progetto è distribuito sotto licenza **MIT**.  
-Consulta il file [LICENSE](LICENSE) per maggiori dettagli.
+Questo progetto è distribuito sotto licenza **MIT**.
