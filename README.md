@@ -17,7 +17,7 @@ Sviluppato per il corso di **Computer Vision e Deep Learning** presso l'Universi
 
 ## 📂 Dataset
 
-Il progetto utilizza il [**Deep-SAR Oil Spill (SOS Dataset - versione corretta, 2023)**[(https://drive.google.com/file/d/12grU_EAPbW75eyyHj-U5pOfnwQzm0MFw/view):
+Il progetto utilizza il [**Deep-SAR Oil Spill (SOS Dataset - versione corretta, 2023)**](https://drive.google.com/file/d/12grU_EAPbW75eyyHj-U5pOfnwQzm0MFw/view):
 
 - Circa 8.000 immagini SAR (dimensioni 256×256 pixel) da Palsar e Sentinel-1A.
 - Suddivise in **80% training**, **10% validation**, **10% test**.
