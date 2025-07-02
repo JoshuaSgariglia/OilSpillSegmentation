@@ -189,7 +189,7 @@ Alcune delle funzioni chiamate dal `main()` sono definite nel file stesso, ed è
 - Poni il dataset nella struttura del progetto (directory `sos-dataset/`)
 - Applica i filtri di preprocessing usando la funzione `denoise_dataset` nel file `main.py`
 
-Questo passo è necessario se si vuole addestrare e valutare i modelli sul dataset preprocessato, altrimenti può essere saltato.
+L'ultimo punto è necessario se si vuole addestrare e valutare i modelli sul dataset preprocessato, altrimenti può essere saltato.
 
 ### 6. Seleziona una funzionalità disponibile nel `main.py`
 Di seguito una panoramica delle opzioni disponibili all’interno della funzione `main()`:
